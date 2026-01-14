@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ThemeOption, Task, Goal, Habit, KeyResult } from '../types';
-import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronUp, Flame, CheckCircle2, Clock, X, LayoutGrid } from 'lucide-react';
+import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronUp, Flame, CheckCircle2, Clock, X, LayoutGrid, Circle, Bookmark } from 'lucide-react';
 
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
 
@@ -202,19 +202,25 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
         })}
 
         {activeMainTab === 'goal' && currentList.map((goal: any) => (
-            <div key={goal.id} className="bg-white rounded-sm border border-slate-100 shadow-sm p-5 space-y-4 group transition-all hover:bg-slate-50 active:scale-[0.99]" onClick={() => setEditingGoal(goal)}>
-               <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                   <Target size={16} style={{ color: theme.color }} />
-                   <h3 className="text-base font-black text-slate-800">{goal.title}</h3>
+            <div key={goal.id} className="bg-white rounded-sm border border-slate-100 shadow-sm p-5 space-y-4 group transition-all hover:bg-slate-50" onClick={() => setEditingGoal(goal)}>
+               <div className="flex items-center justify-between cursor-pointer">
+                 <div className="flex flex-col gap-1">
+                   <div className="flex items-center gap-3">
+                     <Target size={16} style={{ color: theme.color }} />
+                     <h3 className="text-base font-black text-slate-800">{goal.title}</h3>
+                   </div>
+                   <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-7">{goal.category}</span>
                  </div>
                  <Settings2 size={14} className="text-slate-200" />
                </div>
-               <div className="space-y-3">
+               <div className="space-y-6">
                  {goal.keyResults.map((kr: any) => {
                    const progress = getKRProgress(kr.id);
+                   const linkedTasks = library.filter(t => t.krId === kr.id);
+                   const linkedHabits = habits.filter(h => h.krId === kr.id);
+                   
                    return (
-                     <div key={kr.id} className="space-y-1.5">
+                     <div key={kr.id} className="space-y-2">
                        <div className="flex justify-between items-end text-[10px] font-black uppercase">
                          <span className="text-slate-500">{kr.title}</span>
                          <span className="text-slate-400 mono">{progress}%</span>
@@ -222,6 +228,33 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
                        <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
                           <div className="h-full transition-all duration-1000" style={{ width: `${progress}%`, background: themeGradient }} />
                        </div>
+                       
+                       {/* 关联的子项列表 */}
+                       {(linkedTasks.length > 0 || linkedHabits.length > 0) && (
+                         <div className="ml-2 pl-3 border-l border-slate-100 mt-2 space-y-1.5">
+                            {linkedHabits.map(h => {
+                              const HabitIcon = HABIT_ICONS[h.iconName] || Activity;
+                              return (
+                                <div key={h.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 py-0.5">
+                                   <div className="w-4 h-4 rounded-[2px] flex items-center justify-center text-white" style={{ background: h.color }}>
+                                      <HabitIcon size={10} />
+                                   </div>
+                                   <span className="truncate">{h.title}</span>
+                                   <span className="text-[8px] font-black mono text-slate-300 ml-auto">{h.accumulatedCount}/{h.targetCount}</span>
+                                </div>
+                              );
+                            })}
+                            {linkedTasks.map(t => (
+                                <div key={t.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 py-0.5">
+                                   <div className={`w-4 h-4 rounded-[2px] border flex items-center justify-center ${t.completed ? 'bg-slate-200 border-transparent text-slate-400' : 'border-slate-200 text-slate-300'}`}>
+                                      {t.completed ? <CheckCircle2 size={10} /> : <Circle size={10} />}
+                                   </div>
+                                   <span className={`truncate ${t.completed ? 'line-through text-slate-300' : ''}`}>{t.title}</span>
+                                   {t.targetCount && <span className="text-[8px] font-black mono text-slate-300 ml-auto">{t.accumulatedCount}/{t.targetCount}</span>}
+                                </div>
+                            ))}
+                         </div>
+                       )}
                      </div>
                    );
                  })}
@@ -252,6 +285,14 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
                       setEditingGoal(updated);
                       handleUpdateGoal(updated);
                    }} />
+                </div>
+                <div className="space-y-1.5">
+                   <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">所属分类</span>
+                   <input className="w-full bg-slate-50 p-3 text-sm font-bold border-none outline-none focus:bg-slate-100 rounded-sm transition-colors" value={editingGoal.category} onChange={e => {
+                      const updated = { ...editingGoal, category: e.target.value };
+                      setEditingGoal(updated);
+                      handleUpdateGoal(updated);
+                   }} placeholder="例如：长期、年度、学习..." />
                 </div>
                 <div className="space-y-3">
                    <div className="flex justify-between items-center px-1">

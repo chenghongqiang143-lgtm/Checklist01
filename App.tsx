@@ -135,15 +135,23 @@ const App: React.FC = () => {
   const handleAddTaskToDay = (taskTemplate: Task) => {
     setDays(prev => prev.map(d => {
       if (d.date === activeDate) {
-        const newTask: Task = {
-          ...taskTemplate,
-          id: 't-' + Date.now(),
-          originalId: taskTemplate.id,
-          date: activeDate,
-          completed: false,
-          accumulatedCount: 0
-        };
-        return { ...d, tasks: [...d.tasks, newTask] };
+        // 检查是否已经存在
+        const existingTask = d.tasks.find(t => t.originalId === taskTemplate.id);
+        if (existingTask) {
+          // 撤回逻辑：移除任务
+          return { ...d, tasks: d.tasks.filter(t => t.originalId !== taskTemplate.id) };
+        } else {
+          // 添加逻辑
+          const newTask: Task = {
+            ...taskTemplate,
+            id: 't-' + Date.now(),
+            originalId: taskTemplate.id,
+            date: activeDate,
+            completed: false,
+            accumulatedCount: 0
+          };
+          return { ...d, tasks: [...d.tasks, newTask] };
+        }
       }
       return d;
     }));

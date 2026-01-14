@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { DayInfo, ThemeOption, Task, Goal } from '../types';
-import { Plus, Hash, Bookmark, ChevronLeft, ChevronRight, Menu, Target } from 'lucide-react';
+import { Plus, Check, Hash, Bookmark, ChevronLeft, ChevronRight, Menu, Target } from 'lucide-react';
 
 interface OverviewPageProps {
   days: DayInfo[];
@@ -50,6 +50,14 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
     return week;
   }, [weekOffset, days]);
 
+  const activeDayTasks = useMemo(() => {
+    return days.find(d => d.date === activeDate)?.tasks || [];
+  }, [days, activeDate]);
+
+  const isTaskInActiveDay = (taskId: string) => {
+    return activeDayTasks.some(t => t.originalId === taskId);
+  };
+
   const dateRangeString = useMemo(() => {
     const start = displayDays[0].fullDate;
     const end = displayDays[6].fullDate;
@@ -88,6 +96,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                   <Hash size={8} /> {cat}
                 </h4>
                 {tasksInCategory.map((task) => {
+                  const added = isTaskInActiveDay(task.id);
                   const krInfo = getKrInfo(task.krId);
                   const hasTarget = task.targetCount && task.targetCount > 0;
                   const progress = hasTarget ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount!) * 100) : 0;
@@ -95,7 +104,8 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                     <button
                       key={task.id}
                       onClick={() => onAddTask(task)}
-                      className="w-full flex flex-col p-3 bg-white rounded-sm flat-card group active:scale-95 transition-transform shadow-[0_4px_12px_rgba(0,0,0,0.03)] relative overflow-hidden text-left border border-slate-100"
+                      className={`w-full flex flex-col p-3 rounded-sm flat-card group active:scale-95 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] relative overflow-hidden text-left border ${added ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}
+                      style={{ borderColor: added ? theme.color + '44' : undefined }}
                     >
                       {hasTarget && (
                         <div 
@@ -104,9 +114,12 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                         />
                       )}
                       <div className="flex items-center justify-between w-full mb-1 z-10 relative">
-                        <span className="text-[11px] font-bold text-slate-700 truncate pr-4">{task.title}</span>
-                        <div className="w-4 h-4 rounded-sm flex items-center justify-center transition-colors bg-slate-50 group-hover:bg-slate-100 shrink-0">
-                          <Plus size={10} className="text-slate-300 group-hover:text-slate-600" />
+                        <span className={`text-[11px] font-bold truncate pr-4 transition-colors ${added ? 'text-slate-900' : 'text-slate-700'}`}>{task.title}</span>
+                        <div 
+                          className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all shrink-0 ${added ? 'text-white' : 'bg-slate-50 text-slate-300'}`}
+                          style={{ backgroundColor: added ? theme.color : undefined }}
+                        >
+                          {added ? <Check size={10} strokeWidth={4} /> : <Plus size={10} />}
                         </div>
                       </div>
                       <div className="flex flex-col gap-0.5 z-10 relative opacity-60">
@@ -146,13 +159,15 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                    <div key={kr.id} className="space-y-1.5 ml-2 border-l border-slate-100 pl-3">
                      <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1 block">KR: {kr.title}</span>
                      {krTasks.map(task => {
+                        const added = isTaskInActiveDay(task.id);
                         const hasTarget = task.targetCount && task.targetCount > 0;
                         const progress = hasTarget ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount!) * 100) : 0;
                         return (
                           <button
                               key={task.id}
                               onClick={() => onAddTask(task)}
-                              className="w-full flex flex-col p-3 bg-white rounded-sm flat-card group active:scale-95 transition-transform shadow-[0_4px_12px_rgba(0,0,0,0.03)] text-left border border-slate-100 hover:border-slate-200 relative overflow-hidden"
+                              className={`w-full flex flex-col p-3 rounded-sm flat-card group active:scale-95 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] text-left border relative overflow-hidden ${added ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}
+                              style={{ borderColor: added ? theme.color + '44' : undefined }}
                             >
                               {hasTarget && (
                                 <div 
@@ -161,9 +176,12 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                                 />
                               )}
                               <div className="flex items-center justify-between w-full mb-1 z-10 relative">
-                                <span className="text-[11px] font-bold text-slate-700 truncate pr-4">{task.title}</span>
-                                <div className="w-4 h-4 rounded-sm flex items-center justify-center transition-colors bg-slate-50 group-hover:bg-slate-100 shrink-0">
-                                  <Plus size={10} className="text-slate-300 group-hover:text-slate-600" />
+                                <span className={`text-[11px] font-bold truncate pr-4 transition-colors ${added ? 'text-slate-900' : 'text-slate-700'}`}>{task.title}</span>
+                                <div 
+                                  className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all shrink-0 ${added ? 'text-white' : 'bg-slate-50 text-slate-300'}`}
+                                  style={{ backgroundColor: added ? theme.color : undefined }}
+                                >
+                                  {added ? <Check size={10} strokeWidth={4} /> : <Plus size={10} />}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between z-10 relative opacity-60">
