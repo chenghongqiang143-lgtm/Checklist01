@@ -28,7 +28,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({ theme, activeDate, days, habits
   const doneHabits = habits.filter(h => h.completedToday).length;
 
   const [showStats, setShowStats] = useState(false);
-  const [editingScoreDef, setEditingScoreDef] = useState<ScoreDefinition | null>(null);
 
   const getScoreValue = (defId: string) => activeDay?.scores?.find(s => s.definitionId === defId)?.value ?? 0;
   const totalDayScore = activeDay?.scores?.reduce((acc, s) => acc + s.value, 0) ?? 0;
@@ -43,25 +42,27 @@ const ReviewPage: React.FC<ReviewPageProps> = ({ theme, activeDate, days, habits
   };
 
   const renderStats = () => {
-    const last7Days = days.slice(-7);
+    const historyDays = days.slice(-14); // 扩展到 14 天展示
     return (
       <div className="fixed inset-0 z-[200] bg-white p-6 overflow-y-auto no-scrollbar animate-in slide-in-from-right">
         <div className="flex justify-between items-center mb-8 pt-10">
-           <h2 className="text-xl font-black uppercase tracking-tighter">数据统计 / STATS</h2>
+           <h2 className="text-xl font-black uppercase tracking-tighter">趋势统计 / TRENDS</h2>
            <button onClick={() => setShowStats(false)} className="p-2 bg-slate-50 rounded-full"><X size={20}/></button>
         </div>
-        <div className="space-y-10">
+        <div className="space-y-12">
            {scoreDefs.map(def => (
              <section key={def.id}>
-               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><BarChart3 size={12}/> {def.label} 波动</h4>
-               <div className="flex gap-2 h-20 items-end px-2">
-                 {last7Days.map(d => {
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={10} style={{ color: theme.color }}/> {def.label} 热力图</h4>
+               <div className="flex flex-wrap gap-1.5 px-1">
+                 {historyDays.map(d => {
                    const val = d.scores?.find(s => s.definitionId === def.id)?.value ?? 0;
-                   const height = ((val + 2) / 4) * 100;
+                   // 计算透明度 0.1 ~ 1.0
+                   const opacity = val === 0 ? 0.05 : (val + 3) / 5;
                    return (
-                     <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group">
-                       <div className="w-full rounded-sm transition-all duration-500" style={{ height: `${height}%`, backgroundColor: val > 0 ? theme.color : '#e2e8f0', opacity: val === 0 ? 0.3 : 1 }} />
-                       <span className="text-[7px] font-black text-slate-300 mono">{d.date}</span>
+                     <div key={d.date} className="w-8 h-8 rounded-[4px] transition-all flex items-center justify-center relative group" style={{ backgroundColor: val !== 0 ? theme.color : '#f1f5f9', opacity }}>
+                        <span className="text-[7px] font-black text-white pointer-events-none">{d.date}</span>
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-800 text-white text-[6px] px-1.5 py-0.5 rounded whitespace-nowrap z-50">{val > 0 ? '+' : ''}{val}</div>
                      </div>
                    );
                  })}

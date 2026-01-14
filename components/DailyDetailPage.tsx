@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { DayInfo, ThemeOption, Task, Goal, Habit } from '../types';
-import { CheckSquare, Square, Target, Menu, Clock, BarChart3, Activity, ListTodo, X, Archive, Flame, CheckCircle2 } from 'lucide-react';
+import { CheckSquare, Square, Target, Menu, Clock, BarChart3, Activity, ListTodo, X, Archive, Flame, CheckCircle2, Plus } from 'lucide-react';
 
-// 图标映射
 import { Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop } from 'lucide-react';
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop };
 
@@ -24,7 +23,7 @@ interface DailyDetailPageProps {
 }
 
 const DailyDetailPage: React.FC<DailyDetailPageProps> = ({ 
-  days, goals = [], habits = [], activeDate, onDateChange, onToggleLibrary, onToggleTaskComplete, onToggleHabitComplete, onEditTask, onOpenSidebar, onUpdateTask, theme 
+  days, goals = [], habits = [], activeDate, onDateChange, onToggleLibrary, onToggleTaskComplete, onToggleHabitComplete, onEditTask, onOpenSidebar, onUpdateTask, theme, onOpenQuickMenu 
 }) => {
   const activeDay = days.find(d => d.date === activeDate);
   const hours = Array.from({ length: 16 }, (_, i) => i + 7);
@@ -49,7 +48,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
   }, [now, days, activeDate]);
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white relative">
       <header className="px-6 pt-16 pb-4 bg-white shrink-0">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={onOpenSidebar} className="p-1 -ml-1 text-slate-400 active:scale-90 transition-transform"><Menu size={20} strokeWidth={2.5} /></button>
@@ -110,6 +109,13 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
           })}
         </div>
       </main>
+
+      {/* FAB: Floating Action Button */}
+      <div className="fixed right-6 bottom-28 z-[150]">
+         <button onClick={onOpenQuickMenu} className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white active:scale-90 transition-transform" style={{ backgroundColor: theme.color }}>
+            <Plus size={28} />
+         </button>
+      </div>
 
       {planningHour !== null && (
         <div className="fixed inset-0 z-[180] bg-slate-900/40 backdrop-blur-sm flex items-end justify-center" onClick={() => setPlanningHour(null)}>
