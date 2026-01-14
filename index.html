@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>极简日程</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;400;700&display=swap');
+        
+        :root {
+            --radius: 4px;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            color: #1a1a1a;
+            overflow: hidden;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* 极简滚动条 */
+        ::-webkit-scrollbar { width: 0px; }
+        
+        /* 移除点击高亮 */
+        * { -webkit-tap-highlight-color: transparent; }
+
+        /* 强制扁平化与极小圆角 */
+        .flat-card {
+            border: 0 !important;
+            border-radius: var(--radius) !important;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+</head>
+<body class="m-0 p-0">
+    <div id="root"></div>
+</body>
+</html>
