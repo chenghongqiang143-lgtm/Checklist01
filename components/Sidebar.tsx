@@ -20,7 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
   return (
     <>
       <div 
-        className={`fixed inset-0 bg-slate-900/20 backdrop-blur-[2px] z-[160] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/60 z-[160] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
       
@@ -32,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
             <User size={28} />
           </div>
           <h2 className="text-xl font-black text-slate-800 tracking-tight">极简日程</h2>
-          <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase mt-1">Minimalist Schedule</p>
+          <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase mt-1">Minimalist Workspace</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
@@ -40,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
           {/* Theme Section */}
           <section>
             <p className="text-[10px] font-black text-slate-300 tracking-widest uppercase mb-4 flex items-center gap-2">
-               <Palette size={12} /> 主题风格
+               <Palette size={12} /> 个性化主题
             </p>
             <div className="grid grid-cols-5 gap-3">
               {THEME_OPTIONS.map((theme) => (
@@ -59,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
           {/* Data Management Section */}
           <section className="space-y-3">
             <p className="text-[10px] font-black text-slate-300 tracking-widest uppercase mb-2 flex items-center gap-2">
-               <Shield size={12} /> 数据管理
+               <Shield size={12} /> 数据本地维护
             </p>
             
             <button 
@@ -68,7 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
             >
               <div className="flex items-center gap-3">
                 <Download size={14} className="text-slate-400" />
-                <span className="text-xs font-bold text-slate-600">备份数据</span>
+                <span className="text-xs font-bold text-slate-600">备份 JSON 数据</span>
               </div>
               <Copy size={12} className="text-slate-300" />
             </button>
@@ -80,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
               </div>
               <textarea 
                 className="w-full h-20 bg-white border-0 rounded-sm p-3 text-[10px] font-bold text-slate-500 outline-none placeholder:text-slate-300 resize-none"
-                placeholder="粘贴 JSON 数据..."
+                placeholder="在此粘贴 JSON 文本..."
                 value={restoreInput}
                 onChange={(e) => setRestoreInput(e.target.value)}
               />
@@ -98,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
             >
               <div className="flex items-center gap-3">
                 <Trash2 size={14} className="text-rose-400" />
-                <span className="text-xs font-bold text-rose-600">清除日程</span>
+                <span className="text-xs font-bold text-rose-600">清空所有日程</span>
               </div>
             </button>
           </section>
@@ -107,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
         <div className="p-6 bg-slate-50/50">
           <div className="flex items-center gap-2 text-slate-300 justify-center">
              <Info size={12} />
-             <span className="text-[10px] font-black uppercase tracking-widest">Version 2.8.0</span>
+             <span className="text-[10px] font-black uppercase tracking-widest">Version 2.8.5</span>
           </div>
         </div>
       </div>

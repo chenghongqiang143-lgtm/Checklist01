@@ -11,7 +11,7 @@ interface BottomNavProps {
 
 const BottomNav: React.FC<BottomNavProps> = ({ currentView, onViewChange, theme }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 pb-6 pt-2 h-[88px] bg-white/95 backdrop-blur-md flex items-center px-4 z-[100] border-t border-slate-50 shadow-sm">
+    <nav className="fixed bottom-0 left-0 right-0 pb-6 pt-2 h-[88px] bg-white flex items-center px-4 z-[100] border-t border-slate-50 shadow-sm">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         const isActive = currentView === item.id;

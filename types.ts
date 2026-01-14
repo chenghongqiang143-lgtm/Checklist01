@@ -38,12 +38,12 @@ export interface Habit {
 export interface ScoreDefinition {
   id: string;
   label: string;
-  labels: { [key: number]: string }; // -2, -1, 0, 1, 2 对应的文本
+  labels: { [key: number]: string };
 }
 
 export interface DayScore {
   definitionId: string;
-  value: number; // -2 to 2
+  value: number;
 }
 
 export interface Task {
@@ -58,14 +58,11 @@ export interface Task {
   remark?: string;
   krId?: string;
   completed?: boolean;
-  frequencyDays?: number;
-  frequencyTimes?: number;
   targetCount?: number;
   accumulatedCount?: number;
-  originalId?: string; // Points back to the library task ID
+  originalId?: string;
   resetCycle?: ResetCycle;
-  resetDays?: number; // Custom reset interval in days
-  lastCompletedAt?: number; // Timestamp or relative day index
+  lastCompletedAt?: number;
 }
 
 export interface DayInfo {
@@ -78,7 +75,7 @@ export interface DayInfo {
   scores?: DayScore[];
 }
 
-export type AppView = 'overview' | 'daily' | 'review' | 'library' | 'profile';
+export type AppView = 'overview' | 'daily' | 'review' | 'library';
 
 export interface ThemeOption {
   name: string;
