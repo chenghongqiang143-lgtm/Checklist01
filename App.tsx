@@ -149,6 +149,16 @@ const App: React.FC = () => {
     }));
   };
 
+  const getTranslateX = () => {
+    switch (currentView) {
+      case 'overview': return '0%';
+      case 'daily': return '-25%';
+      case 'library': return '-50%';
+      case 'review': return '-75%';
+      default: return '0%';
+    }
+  };
+
   const renderGlobalOverlays = () => {
     const overlays = [];
     
@@ -314,21 +324,110 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-white text-slate-900 font-sans">
-      <div className="h-full flex flex-col">
-        {currentView === 'overview' && <OverviewPage days={days} theme={theme} activeDate={activeDate} onDateChange={setActiveDate} onAddTask={handleAddTaskToDay} onOpenSidebar={() => setIsSidebarOpen(true)} library={library} goals={goals} />}
-        {currentView === 'daily' && <DailyDetailPage days={days} goals={goals} habits={habits} activeDate={activeDate} onDateChange={setActiveDate} onToggleLibrary={() => {}} onOpenQuickMenu={() => setIsCreating({ type: 'temp_task' })} onToggleTaskComplete={handleToggleTaskComplete} onToggleHabitComplete={handleToggleHabitComplete} onEditTask={setEditingTask} onOpenSidebar={() => setIsSidebarOpen(true)} onUpdateTask={handleUpdateTask} theme={theme} />}
-        {currentView === 'library' && (
-          <TaskLibraryPage theme={theme} library={library} habits={habits} goals={goals} setGoals={setGoals} onEditTask={setEditingTask} onEditHabit={setEditingHabit} onOpenSidebar={() => setIsSidebarOpen(true)} onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} activeMainTab={activeLibraryTab} setActiveMainTab={setActiveLibraryTab} />
-        )}
-        {currentView === 'review' && <ReviewPage theme={theme} activeDate={activeDate} days={days} habits={habits} rewards={rewards} setRewards={setRewards} reflectionTemplates={reflectionTemplates} setReflectionTemplates={setReflectionTemplates} scoreDefs={scoreDefs} setScoreDefs={setScoreDefs} onUpdateDay={(date, updates) => setDays(prev => prev.map(d => d.date === date ? { ...d, ...updates } : d))} onOpenSidebar={() => setIsSidebarOpen(true)} />}
+      <div className="h-full flex flex-col relative">
+        {/* 滑动视图主容器 */}
+        <div className="flex-1 overflow-hidden relative">
+          <div 
+            className="view-slider" 
+            style={{ transform: `translateX(${getTranslateX()})` }}
+          >
+            {/* 概览页 */}
+            <div className="view-slide">
+              <OverviewPage 
+                days={days} 
+                theme={theme} 
+                activeDate={activeDate} 
+                onDateChange={setActiveDate} 
+                onAddTask={handleAddTaskToDay} 
+                onOpenSidebar={() => setIsSidebarOpen(true)} 
+                library={library} 
+                goals={goals} 
+              />
+            </div>
+            
+            {/* 日程页 */}
+            <div className="view-slide">
+              <DailyDetailPage 
+                days={days} 
+                goals={goals} 
+                habits={habits} 
+                activeDate={activeDate} 
+                onDateChange={setActiveDate} 
+                onToggleLibrary={() => {}} 
+                onOpenQuickMenu={() => setIsCreating({ type: 'temp_task' })} 
+                onToggleTaskComplete={handleToggleTaskComplete} 
+                onToggleHabitComplete={handleToggleHabitComplete} 
+                onEditTask={setEditingTask} 
+                onOpenSidebar={() => setIsSidebarOpen(true)} 
+                onUpdateTask={handleUpdateTask} 
+                theme={theme} 
+              />
+            </div>
+
+            {/* 库页面 */}
+            <div className="view-slide">
+              <TaskLibraryPage 
+                theme={theme} 
+                library={library} 
+                habits={habits} 
+                goals={goals} 
+                setGoals={setGoals} 
+                onEditTask={setEditingTask} 
+                onEditHabit={setEditingHabit} 
+                onOpenSidebar={() => setIsSidebarOpen(true)} 
+                onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} 
+                activeMainTab={activeLibraryTab} 
+                setActiveMainTab={setActiveLibraryTab} 
+              />
+            </div>
+
+            {/* 复盘页 */}
+            <div className="view-slide">
+              <ReviewPage 
+                theme={theme} 
+                activeDate={activeDate} 
+                days={days} 
+                habits={habits} 
+                rewards={rewards} 
+                setRewards={setRewards} 
+                reflectionTemplates={reflectionTemplates} 
+                setReflectionTemplates={setReflectionTemplates} 
+                scoreDefs={scoreDefs} 
+                setScoreDefs={setScoreDefs} 
+                onUpdateDay={(date, updates) => setDays(prev => prev.map(d => d.date === date ? { ...d, ...updates } : d))} 
+                onOpenSidebar={() => setIsSidebarOpen(true)} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 固定底栏 */}
         <BottomNav currentView={currentView} onViewChange={setCurrentView} theme={theme} />
       </div>
 
+      {/* 固定悬浮按钮 */}
       {(currentView === 'daily' || currentView === 'library') && (
-        <button onClick={() => setIsCreating({ type: currentView === 'daily' ? 'temp_task' : (activeLibraryTab === 'habit' ? 'habit' : activeLibraryTab === 'goal' ? 'goal' : 'task') })} className="fixed right-6 bottom-28 w-14 h-14 rounded-sm shadow-2xl flex items-center justify-center text-white active:scale-90 transition-all z-[150]" style={{ background: theme.color }}><Plus size={32} /></button>
+        <button 
+          onClick={() => setIsCreating({ 
+            type: currentView === 'daily' ? 'temp_task' : (activeLibraryTab === 'habit' ? 'habit' : activeLibraryTab === 'goal' ? 'goal' : 'task') 
+          })} 
+          className="fixed right-6 bottom-28 w-14 h-14 rounded-sm shadow-2xl flex items-center justify-center text-white active:scale-90 transition-all z-[150]" 
+          style={{ background: theme.color }}
+        >
+          <Plus size={32} />
+        </button>
       )}
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentTheme={theme} onThemeChange={setTheme} onClearTasks={() => setDays(INITIAL_DAYS)} onBackup={() => {}} onRestore={() => {}} />
+      {/* 固定侧边栏和 Overlay */}
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+        currentTheme={theme} 
+        onThemeChange={setTheme} 
+        onClearTasks={() => setDays(INITIAL_DAYS)} 
+        onBackup={() => {}} 
+        onRestore={() => {}} 
+      />
       {renderGlobalOverlays()}
     </div>
   );
