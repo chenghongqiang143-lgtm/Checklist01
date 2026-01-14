@@ -3,6 +3,13 @@ export type TaskType = 'completed' | 'focus' | 'learning' | 'empty';
 export type LibraryTab = 'task' | 'habit' | 'goal' | 'note';
 export type ResetCycle = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
 
+export interface Reward {
+  id: string;
+  title: string;
+  cost: number;
+  icon: string;
+}
+
 export interface KeyResult {
   id: string;
   title: string;
@@ -22,6 +29,7 @@ export interface Habit {
   category: string;
   streak: number;
   remark?: string;
+  completionTimes?: string[]; // 新增：记录多次完成的小时字符串，如 ["09:00", "11:00"]
   frequencyDays: number;
   frequencyTimes: number;
   color: string;

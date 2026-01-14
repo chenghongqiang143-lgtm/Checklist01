@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DayInfo, ThemeOption, Task, Goal } from '../types';
-import { Plus, Hash, Bookmark, ChevronLeft, ChevronRight, Menu, Target, LayoutGrid, BarChart3 } from 'lucide-react';
+import { Plus, Hash, Bookmark, ChevronLeft, ChevronRight, Menu, Target } from 'lucide-react';
 
 interface OverviewPageProps {
   days: DayInfo[];
@@ -16,7 +16,45 @@ interface OverviewPageProps {
 
 const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, onDateChange, onAddTask, onOpenSidebar, library, goals }) => {
   const todayDate = new Date().getDate();
-  const [libraryFilter, setLibraryFilter] = useState<'goal' | 'category'>('category'); // Default back to 'category'
+  const [libraryFilter, setLibraryFilter] = useState<'goal' | 'category'>('category');
+  const [weekOffset, setWeekOffset] = useState(0); // -1: 上周, 0: 本周, 1: 下周
+
+  const themeGradient = `linear-gradient(135deg, ${theme.color}, ${theme.color}99)`;
+
+  // 计算当前显示的周日期数据
+  const displayDays = useMemo(() => {
+    const now = new Date();
+    // 获取当前周的周一
+    const day = now.getDay() || 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1 + (weekOffset * 7));
+
+    const week: DayInfo[] = [];
+    const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateVal = d.getDate();
+      
+      // 尝试匹配 props 中传入的 days 里的任务
+      const existingDay = days.find(day => day.date === dateVal);
+      
+      week.push({
+        date: dateVal,
+        weekday: weekdays[i],
+        fullDate: `${d.getMonth() + 1}月${dateVal}日`,
+        tasks: existingDay ? existingDay.tasks : []
+      });
+    }
+    return week;
+  }, [weekOffset, days]);
+
+  const dateRangeString = useMemo(() => {
+    const start = displayDays[0].fullDate;
+    const end = displayDays[6].fullDate;
+    return `${start} - ${end}`;
+  }, [displayDays]);
 
   const categories = Array.from(new Set(library.map(t => t.category)));
 
@@ -32,9 +70,9 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
   const getTimeAgo = (timestamp?: number) => {
     if (!timestamp) return '未开始';
     const diff = Date.now() - timestamp;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return '今天';
-    return `${days}天前`;
+    const daysAgo = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (daysAgo === 0) return '今天';
+    return `${daysAgo}天前`;
   };
 
   const renderLibraryContent = () => {
@@ -62,7 +100,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                       {hasTarget && (
                         <div 
                           className="absolute inset-y-0 left-0 z-0 transition-all duration-500" 
-                          style={{ width: `${progress}%`, background: `linear-gradient(135deg, ${theme.color}, ${theme.color}40)`, opacity: 0.15 }} 
+                          style={{ width: `${progress}%`, background: themeGradient, opacity: 0.12 }} 
                         />
                       )}
                       <div className="flex items-center justify-between w-full mb-1 z-10 relative">
@@ -119,7 +157,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                               {hasTarget && (
                                 <div 
                                   className="absolute inset-y-0 left-0 z-0 transition-all duration-500" 
-                                  style={{ width: `${progress}%`, background: `linear-gradient(135deg, ${theme.color}, ${theme.color}40)`, opacity: 0.15 }} 
+                                  style={{ width: `${progress}%`, background: themeGradient, opacity: 0.12 }} 
                                 />
                               )}
                               <div className="flex items-center justify-between w-full mb-1 z-10 relative">
@@ -154,20 +192,32 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
               <Menu size={20} strokeWidth={2.5} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-4 rounded-full" style={{ background: `linear-gradient(135deg, ${theme.color}, ${theme.color}80)` }} />
+              <div className="w-1.5 h-4 rounded-full" style={{ background: themeGradient }} />
               <h1 className="text-lg font-black tracking-tighter uppercase">WEEKLY / 概览</h1>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center justify-between bg-slate-50 rounded-sm px-3 py-2">
-          <button className="text-slate-300 hover:text-slate-600 transition-colors">
+        {/* 周切换选择器 */}
+        <div className="flex items-center justify-between bg-slate-50 rounded-sm px-1 py-1">
+          <button 
+            onClick={() => setWeekOffset(Math.max(-1, weekOffset - 1))}
+            className={`p-2 transition-colors ${weekOffset === -1 ? 'text-slate-200 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}
+          >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-800">
-            01月12日 - 01月18日
-          </span>
-          <button className="text-slate-300 hover:text-slate-600 transition-colors">
+          <div className="flex-1 text-center">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
+              {weekOffset === -1 ? 'LAST WEEK' : weekOffset === 1 ? 'NEXT WEEK' : 'THIS WEEK'}
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-800">
+              {dateRangeString}
+            </span>
+          </div>
+          <button 
+            onClick={() => setWeekOffset(Math.min(1, weekOffset + 1))}
+            className={`p-2 transition-colors ${weekOffset === 1 ? 'text-slate-200 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}
+          >
             <ChevronRight size={16} />
           </button>
         </div>
@@ -179,17 +229,17 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
             <h3 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">计划流</h3>
           </div>
           <div className="flex-1 overflow-y-auto no-scrollbar px-2 space-y-1.5 pb-24">
-            {days.map((day) => {
+            {displayDays.map((day) => {
               const isActive = day.date === activeDate;
-              const isToday = day.date === todayDate;
+              const isToday = day.date === todayDate && weekOffset === 0;
               return (
                 <div 
                   key={day.date}
                   onClick={() => onDateChange(day.date)}
                   className={`w-full flex flex-col p-3 rounded-sm transition-all cursor-pointer relative ${
-                    isActive ? 'shadow-lg z-10' : 'bg-slate-50/50 hover:bg-slate-50'
+                    isActive ? 'shadow-[0_12px_24px_-8px_rgba(0,0,0,0.2)] z-10' : 'bg-slate-50/50 hover:bg-slate-50'
                   }`}
-                  style={{ background: isActive ? `linear-gradient(135deg, ${theme.color}, ${theme.color}80)` : undefined }}
+                  style={{ background: isActive ? themeGradient : undefined }}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex flex-col">
