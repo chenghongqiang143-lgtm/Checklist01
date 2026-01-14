@@ -1,6 +1,7 @@
 
 export type TaskType = 'completed' | 'focus' | 'learning' | 'empty';
 export type LibraryTab = 'task' | 'habit' | 'goal' | 'note';
+export type ResetCycle = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
 
 export interface KeyResult {
   id: string;
@@ -27,6 +28,11 @@ export interface Habit {
   iconName: string;
   completedToday?: boolean;
   krId?: string;
+  targetCount?: number;
+  accumulatedCount?: number;
+  resetCycle?: ResetCycle;
+  resetDays?: number;
+  lastCompletedAt?: number;
 }
 
 export interface ScoreDefinition {
@@ -56,6 +62,10 @@ export interface Task {
   frequencyTimes?: number;
   targetCount?: number;
   accumulatedCount?: number;
+  originalId?: string; // Points back to the library task ID
+  resetCycle?: ResetCycle;
+  resetDays?: number; // Custom reset interval in days
+  lastCompletedAt?: number; // Timestamp or relative day index
 }
 
 export interface DayInfo {

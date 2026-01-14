@@ -3,7 +3,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>极简日程</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -19,6 +19,13 @@
             -webkit-font-smoothing: antialiased;
             color: #1a1a1a;
             overflow: hidden;
+            /* 解决移动端 Dvh 高度问题 */
+            height: 100dvh;
+        }
+
+        #root {
+            height: 100%;
+            overflow: hidden;
         }
 
         .mono { font-family: 'JetBrains Mono', monospace; }
@@ -29,10 +36,31 @@
         /* 移除点击高亮 */
         * { -webkit-tap-highlight-color: transparent; }
 
-        /* 强制扁平化与极小圆角 */
+        /* 页面切换动画容器 */
+        .view-slider {
+            display: flex;
+            width: 400%; /* 4个页面 */
+            height: 100%;
+            transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .view-slide {
+            width: 25%;
+            height: 100%;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
         .flat-card {
             border: 0 !important;
             border-radius: var(--radius) !important;
+        }
+
+        /* 输入法弹出时的弹性调整 */
+        @media (max-height: 500px) {
+            .hide-on-keyboard {
+                display: none !important;
+            }
         }
     </style>
 <script type="importmap">

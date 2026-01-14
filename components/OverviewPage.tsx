@@ -16,7 +16,7 @@ interface OverviewPageProps {
 
 const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, onDateChange, onAddTask, onOpenSidebar, library, goals }) => {
   const todayDate = new Date().getDate();
-  const [libraryFilter, setLibraryFilter] = useState<'category' | 'goal'>('category');
+  const [libraryFilter, setLibraryFilter] = useState<'goal' | 'category'>('category'); // Default back to 'category'
 
   const categories = Array.from(new Set(library.map(t => t.category)));
 
@@ -27,6 +27,14 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
       if (kr) return { goal: g.title, kr: kr.title };
     }
     return null;
+  };
+
+  const getTimeAgo = (timestamp?: number) => {
+    if (!timestamp) return '未开始';
+    const diff = Date.now() - timestamp;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return '今天';
+    return `${days}天前`;
   };
 
   const renderLibraryContent = () => {
@@ -49,21 +57,29 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                     <button
                       key={task.id}
                       onClick={() => onAddTask(task)}
-                      className="w-full flex flex-col p-3 bg-white rounded-sm flat-card group active:scale-95 transition-transform shadow-sm relative overflow-hidden text-left"
+                      className="w-full flex flex-col p-3 bg-white rounded-sm flat-card group active:scale-95 transition-transform shadow-[0_4px_12px_rgba(0,0,0,0.03)] relative overflow-hidden text-left border border-slate-100"
                     >
-                      {hasTarget && <div className="absolute inset-y-0 left-0 bg-slate-100 transition-all opacity-50 z-0" style={{ width: `${progress}%` }} />}
-                      <div className="flex items-center justify-between w-full mb-1 z-10">
+                      {hasTarget && (
+                        <div 
+                          className="absolute inset-y-0 left-0 z-0 transition-all duration-500" 
+                          style={{ width: `${progress}%`, background: `linear-gradient(135deg, ${theme.color}, ${theme.color}40)`, opacity: 0.15 }} 
+                        />
+                      )}
+                      <div className="flex items-center justify-between w-full mb-1 z-10 relative">
                         <span className="text-[11px] font-bold text-slate-700 truncate pr-4">{task.title}</span>
                         <div className="w-4 h-4 rounded-sm flex items-center justify-center transition-colors bg-slate-50 group-hover:bg-slate-100 shrink-0">
                           <Plus size={10} className="text-slate-300 group-hover:text-slate-600" />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between z-10">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">{task.category}</span>
-                          {krInfo && <span className="text-[7px] font-black text-slate-400">/ {krInfo.goal}</span>}
+                      <div className="flex flex-col gap-0.5 z-10 relative opacity-60">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{task.category}</span>
+                          {krInfo && <span className="text-[7px] font-black text-blue-400 uppercase">/ {krInfo.kr}</span>}
                         </div>
-                        {hasTarget && <span className="text-[7px] font-black text-slate-400 mono">{task.accumulatedCount}/{task.targetCount}</span>}
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className="text-[7px] font-black text-slate-300 mono">{getTimeAgo(task.lastCompletedAt)}</span>
+                          {hasTarget && <span className="text-[7px] font-black text-slate-400 mono">{task.accumulatedCount}/{task.targetCount}</span>}
+                        </div>
                       </div>
                     </button>
                   );
@@ -76,34 +92,50 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {goals.map(goal => {
            const relatedTasks = library.filter(t => goal.keyResults.some(kr => kr.id === t.krId));
            if (relatedTasks.length === 0) return null;
            return (
-             <div key={goal.id} className="space-y-2">
-               <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2 flex items-center gap-1">
-                 <Target size={10} /> {goal.title}
+             <div key={goal.id} className="space-y-3">
+               <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2 flex items-center gap-1.5">
+                 <Target size={10} style={{ color: theme.color }} /> {goal.title}
                </h4>
-               {relatedTasks.map(task => {
-                 const hasTarget = task.targetCount && task.targetCount > 0;
+               {goal.keyResults.map(kr => {
+                 const krTasks = library.filter(t => t.krId === kr.id);
+                 if (krTasks.length === 0) return null;
                  return (
-                  <button
-                      key={task.id}
-                      onClick={() => onAddTask(task)}
-                      className="w-full flex flex-col p-3 bg-white rounded-sm flat-card group active:scale-95 transition-transform shadow-sm text-left border-l-2 border-transparent hover:border-l-slate-200"
-                    >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-[11px] font-bold text-slate-700 truncate pr-4">{task.title}</span>
-                        <div className="w-4 h-4 rounded-sm flex items-center justify-center transition-colors bg-slate-50 group-hover:bg-slate-100 shrink-0">
-                          <Plus size={10} className="text-slate-300 group-hover:text-slate-600" />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">{task.category}</span>
-                        {hasTarget && <span className="text-[7px] font-black text-slate-400 mono">{task.accumulatedCount}/{task.targetCount}</span>}
-                      </div>
-                    </button>
+                   <div key={kr.id} className="space-y-1.5 ml-2 border-l border-slate-100 pl-3">
+                     <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1 block">KR: {kr.title}</span>
+                     {krTasks.map(task => {
+                        const hasTarget = task.targetCount && task.targetCount > 0;
+                        const progress = hasTarget ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount!) * 100) : 0;
+                        return (
+                          <button
+                              key={task.id}
+                              onClick={() => onAddTask(task)}
+                              className="w-full flex flex-col p-3 bg-white rounded-sm flat-card group active:scale-95 transition-transform shadow-[0_4px_12px_rgba(0,0,0,0.03)] text-left border border-slate-100 hover:border-slate-200 relative overflow-hidden"
+                            >
+                              {hasTarget && (
+                                <div 
+                                  className="absolute inset-y-0 left-0 z-0 transition-all duration-500" 
+                                  style={{ width: `${progress}%`, background: `linear-gradient(135deg, ${theme.color}, ${theme.color}40)`, opacity: 0.15 }} 
+                                />
+                              )}
+                              <div className="flex items-center justify-between w-full mb-1 z-10 relative">
+                                <span className="text-[11px] font-bold text-slate-700 truncate pr-4">{task.title}</span>
+                                <div className="w-4 h-4 rounded-sm flex items-center justify-center transition-colors bg-slate-50 group-hover:bg-slate-100 shrink-0">
+                                  <Plus size={10} className="text-slate-300 group-hover:text-slate-600" />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between z-10 relative opacity-60">
+                                <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">{task.category}</span>
+                                {hasTarget && <span className="text-[7px] font-black text-slate-400 mono">{task.accumulatedCount}/{task.targetCount}</span>}
+                              </div>
+                            </button>
+                        );
+                     })}
+                   </div>
                  );
                })}
              </div>
@@ -122,7 +154,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
               <Menu size={20} strokeWidth={2.5} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-4 rounded-full" style={{ backgroundColor: theme.color }} />
+              <div className="w-1.5 h-4 rounded-full" style={{ background: `linear-gradient(135deg, ${theme.color}, ${theme.color}80)` }} />
               <h1 className="text-lg font-black tracking-tighter uppercase">WEEKLY / 概览</h1>
             </div>
           </div>
@@ -157,7 +189,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                   className={`w-full flex flex-col p-3 rounded-sm transition-all cursor-pointer relative ${
                     isActive ? 'shadow-lg z-10' : 'bg-slate-50/50 hover:bg-slate-50'
                   }`}
-                  style={{ backgroundColor: isActive ? theme.color : undefined }}
+                  style={{ background: isActive ? `linear-gradient(135deg, ${theme.color}, ${theme.color}80)` : undefined }}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex flex-col">
@@ -225,20 +257,20 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
             <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">任务库</h3>
             <div className="flex bg-slate-200/50 rounded-sm p-0.5">
                 <button 
-                  onClick={() => setLibraryFilter('category')} 
-                  className={`px-3 py-1 rounded-sm text-[8px] font-black uppercase tracking-widest transition-all ${
-                    libraryFilter === 'category' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-500'
-                  }`}
-                >
-                  分类
-                </button>
-                <button 
                   onClick={() => setLibraryFilter('goal')} 
                   className={`px-3 py-1 rounded-sm text-[8px] font-black uppercase tracking-widest transition-all ${
                     libraryFilter === 'goal' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-500'
                   }`}
                 >
                   目标
+                </button>
+                <button 
+                  onClick={() => setLibraryFilter('category')} 
+                  className={`px-3 py-1 rounded-sm text-[8px] font-black uppercase tracking-widest transition-all ${
+                    libraryFilter === 'category' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-500'
+                  }`}
+                >
+                  分类
                 </button>
             </div>
           </div>
