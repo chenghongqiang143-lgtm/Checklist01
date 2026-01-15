@@ -17,9 +17,7 @@ export const THEME_OPTIONS: ThemeOption[] = [
 
 export const INITIAL_DAYS: DayInfo[] = [
   { date: 12, weekday: 'MON', fullDate: '1月12日', tasks: [] },
-  { date: 13, weekday: 'TUE', fullDate: '1月13日', tasks: [
-    { id: 't1', title: '核心算法重构', time: '09:00', duration: '2h', type: 'focus', category: '工作', date: 13 }
-  ] },
+  { date: 13, weekday: 'TUE', fullDate: '1月13日', tasks: [] },
   { date: 14, weekday: 'WED', fullDate: '1月14日', isActive: true, tasks: [] },
   { date: 15, weekday: 'THU', fullDate: '1月15日', tasks: [] },
   { date: 16, weekday: 'FRI', fullDate: '1月16日', tasks: [] },

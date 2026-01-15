@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { DayInfo, ThemeOption, Task, Goal, Habit } from '../types';
-import { CheckSquare, Square, Menu, Activity, X, ListTodo, CheckCircle2 } from 'lucide-react';
+import { DayInfo, ThemeOption, Task, Goal, Habit, Subtask } from '../types';
+import { CheckSquare, Square, Menu, Activity, X, ListTodo, CheckCircle2, RotateCcw } from 'lucide-react';
 
 import { Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin } from 'lucide-react';
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
@@ -17,6 +17,7 @@ interface DailyDetailPageProps {
   onOpenQuickMenu: (time?: string) => void;
   onToggleTaskComplete: (taskId: string) => void;
   onToggleHabitComplete: (habitId: string, forcedHour?: number) => void;
+  onRetractTask: (taskId: string) => void;
   onEditTask: (task: Task) => void;
   onOpenSidebar: () => void;
   onUpdateTask: (task: Task) => void;
@@ -24,7 +25,7 @@ interface DailyDetailPageProps {
 }
 
 const DailyDetailPage: React.FC<DailyDetailPageProps> = ({ 
-  days, goals = [], habits = [], activeDate, onDateChange, onToggleTaskComplete, onToggleHabitComplete, onEditTask, onOpenSidebar, onUpdateTask, theme, onOpenQuickMenu 
+  days, goals = [], habits = [], activeDate, onDateChange, onToggleTaskComplete, onToggleHabitComplete, onRetractTask, onEditTask, onOpenSidebar, onUpdateTask, theme, onOpenQuickMenu 
 }) => {
   const activeDay = days.find(d => d.date === activeDate);
   const todayDate = new Date().getDate();
@@ -78,6 +79,12 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
     return `${daysAgo}天前`;
   };
 
+  const handleToggleSubtask = (e: React.MouseEvent, task: Task, subId: string) => {
+    e.stopPropagation();
+    const updatedSubtasks = task.subtasks?.map(s => s.id === subId ? { ...s, completed: !s.completed } : s);
+    onUpdateTask({ ...task, subtasks: updatedSubtasks });
+  };
+
   const renderPlanningModal = () => {
     if (planningHour === null) return null;
     return createPortal(
@@ -121,7 +128,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                       <span className="text-sm font-bold text-slate-700">{t.title}</span>
                       <ListTodo size={16} className="text-slate-200" />
                     </div>
-                    {krInfo && <span className="text-[8px] font-black text-blue-400 uppercase mt-0.5">{krInfo.goal}</span>}
+                    {krInfo && <span className="text-[8px] font-black text-blue-500 uppercase mt-0.5">{krInfo.goal}</span>}
                   </div>
                 );
               })
@@ -205,12 +212,15 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                              <span className="text-[10px] font-black uppercase tracking-tighter truncate max-w-[100px]">
                                {h.title} 
                              </span>
-                             <span className="text-[8px] font-bold opacity-60 ml-auto mono">
-                               {h.accumulatedCount}/{h.targetCount}
-                             </span>
+                             <button 
+                              onClick={(e) => { e.stopPropagation(); onToggleHabitComplete(h.id, hour); }}
+                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-0.5 bg-white/20 rounded-[2px] hover:bg-white/40"
+                             >
+                               <RotateCcw size={10} />
+                             </button>
                           </div>
                           <div className="flex items-center justify-between mt-0.5 relative z-10 text-white/70">
-                             <span className="text-[7px] font-black uppercase tracking-widest">上次: {getTimeAgo(h.lastCompletedAt)}</span>
+                             <span className="text-[7px] font-black uppercase tracking-widest">{h.accumulatedCount}/{h.targetCount}</span>
                              {krInfo && <span className="text-[7px] font-black uppercase tracking-tight truncate max-w-[60px]">{krInfo.goal}</span>}
                           </div>
                         </div>
@@ -219,23 +229,65 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                   </div>
                   {hTasks?.map(task => {
                     const krInfo = getKrInfo(task.krId);
-                    const progress = task.targetCount ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount) * 100) : (task.completed ? 100 : 0);
+                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                    
+                    let progress = 0;
+                    if (task.targetCount) {
+                      progress = Math.min(100, ((task.accumulatedCount || 0) / task.targetCount) * 100);
+                    } else if (hasSubtasks) {
+                      const doneSubs = task.subtasks!.filter(s => s.completed).length;
+                      progress = Math.round((doneSubs / task.subtasks!.length) * 100);
+                    } else {
+                      progress = task.completed ? 100 : 0;
+                    }
+
                     return (
-                      <div key={task.id} className="relative rounded-sm mb-2 overflow-hidden shadow-sm border border-slate-100" 
+                      <div key={task.id} className="relative rounded-sm mb-2 overflow-hidden shadow-sm border border-slate-100 group" 
                         onClick={e => { e.stopPropagation(); onToggleTaskComplete(task.id); }}
                         onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onEditTask(task); }}
                       >
                         <div className="absolute inset-y-0 left-0 transition-all duration-700 pointer-events-none opacity-20" style={{ width: `${progress}%`, background: theme.color }} />
                         <div className="p-3 bg-white/60 backdrop-blur-sm flex flex-col gap-1 relative z-10">
                           <div className="flex items-start justify-between">
-                            <div className="flex flex-col">
-                              <h4 className={`text-[12px] font-bold text-slate-800 transition-all ${task.completed ? 'line-through opacity-40' : ''}`}>{task.title}</h4>
+                            <div className="flex flex-col flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className={`text-[12px] font-bold text-slate-800 transition-all ${task.completed ? 'line-through opacity-40' : ''}`}>{task.title}</h4>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); onRetractTask(task.id); }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-300 hover:text-slate-600 hover:bg-slate-50 rounded-sm"
+                                  title="撤回至待排程"
+                                >
+                                  <RotateCcw size={12} />
+                                </button>
+                              </div>
                               {krInfo && <span className="text-[8px] font-black text-blue-500 uppercase mt-0.5">{krInfo.goal} · {krInfo.kr}</span>}
                             </div>
                             <div className="mt-0.5" style={{ color: theme.color }}>
                               {task.completed ? <CheckCircle2 size={16} strokeWidth={3} /> : (task.targetCount ? <span className="text-[9px] font-black mono opacity-40">{task.accumulatedCount}/{task.targetCount}</span> : <Square size={16} strokeWidth={3} />)}
                             </div>
                           </div>
+                          
+                          {hasSubtasks && (
+                             <div className="mt-2 space-y-1 pl-1">
+                                {task.subtasks!.map(sub => (
+                                   <div 
+                                    key={sub.id} 
+                                    onClick={(e) => handleToggleSubtask(e, task, sub.id)}
+                                    className="flex items-center gap-2 group/sub cursor-pointer"
+                                   >
+                                      {sub.completed ? (
+                                        <CheckSquare size={12} style={{ color: theme.color }} />
+                                      ) : (
+                                        <Square size={12} className="text-slate-300 group-hover/sub:text-slate-400 transition-colors" />
+                                      )}
+                                      <span className={`text-[10px] font-medium tracking-tight ${sub.completed ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
+                                        {sub.title || '未命名子任务'}
+                                      </span>
+                                   </div>
+                                ))}
+                             </div>
+                          )}
+
                           <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest mt-1">上次完成: {getTimeAgo(task.lastCompletedAt)}</span>
                         </div>
                       </div>

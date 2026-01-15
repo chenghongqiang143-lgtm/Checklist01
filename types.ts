@@ -54,6 +54,12 @@ export interface DayScore {
   value: number;
 }
 
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -71,6 +77,7 @@ export interface Task {
   originalId?: string;
   resetCycle?: ResetCycle;
   lastCompletedAt?: number;
+  subtasks?: Subtask[];
 }
 
 export interface DayInfo {
