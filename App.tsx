@@ -9,7 +9,7 @@ import TaskLibraryPage from './components/TaskLibraryPage';
 import OverviewPage from './components/OverviewPage';
 import ReviewPage from './components/ReviewPage';
 import Sidebar from './components/Sidebar';
-import { X, Plus, ChevronDown, ChevronUp, Palette, Check, Loader2 } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronUp, Palette, Check, Loader2, Trash2 } from 'lucide-react';
 
 import { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin } from 'lucide-react';
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
@@ -57,7 +57,6 @@ const App: React.FC = () => {
   const [isCreating, setIsCreating] = useState<{ type: 'task' | 'habit' | 'goal' | 'temp_task' | 'reward', defaultCategory?: string } | null>(null);
 
   useEffect(() => {
-    // 增加延迟展示动画
     const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(timer);
   }, []);
@@ -91,10 +90,21 @@ const App: React.FC = () => {
     setEditingTask(null);
   };
 
+  const handleDeleteTaskFromLibrary = (taskId: string) => {
+    setLibrary(prev => prev.filter(t => t.id !== taskId));
+    setDays(prev => prev.map(d => ({ ...d, tasks: d.tasks.filter(t => t.originalId !== taskId && t.id !== taskId) })));
+    setEditingTask(null);
+  };
+
   const handleUpdateHabit = (updatedHabit: Habit) => {
     setHabits(prev => prev.map(h => h.id === updatedHabit.id ? updatedHabit : h));
     setEditingHabit(null);
     setIsHabitAppearanceOpen(false);
+  };
+
+  const handleDeleteHabit = (habitId: string) => {
+    setHabits(prev => prev.filter(h => h.id !== habitId));
+    setEditingHabit(null);
   };
 
   const handleUpdateGoal = (updatedGoal: Goal) => {
@@ -171,7 +181,15 @@ const App: React.FC = () => {
     if (editingHabit) overlays.push(
       <div key="editHabit" className="fixed inset-0 z-[700] bg-slate-900/80 flex items-end justify-center p-4" onClick={() => { setEditingHabit(null); setIsHabitAppearanceOpen(false); }}>
         <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto no-scrollbar" onClick={e => e.stopPropagation()}>
-           <div className="flex justify-between items-center mb-6"><h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">习惯设置</h3><button onClick={() => { setEditingHabit(null); setIsHabitAppearanceOpen(false); }}><X size={20}/></button></div>
+           <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <button onClick={() => handleDeleteHabit(editingHabit.id)} className="p-2 bg-rose-50 text-rose-500 rounded-sm hover:bg-rose-100 transition-colors">
+                  <Trash2 size={18} />
+                </button>
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">习惯设置</h3>
+              </div>
+              <button onClick={() => { setEditingHabit(null); setIsHabitAppearanceOpen(false); }}><X size={20}/></button>
+           </div>
            <div className="space-y-5 pb-4">
              <div className="space-y-1">
                <span className="text-[9px] font-black text-slate-300 uppercase pl-1">习惯标题</span>
@@ -266,7 +284,15 @@ const App: React.FC = () => {
     if (editingTask) overlays.push(
       <div key="editTask" className="fixed inset-0 z-[700] bg-slate-900/80 flex items-end justify-center p-4" onClick={() => setEditingTask(null)}>
         <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto no-scrollbar" onClick={e => e.stopPropagation()}>
-           <div className="flex justify-between items-center mb-6"><h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">任务高级编辑</h3><button onClick={() => setEditingTask(null)}><X size={20}/></button></div>
+           <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <button onClick={() => handleDeleteTaskFromLibrary(editingTask.id)} className="p-2 bg-rose-50 text-rose-500 rounded-sm hover:bg-rose-100 transition-colors">
+                  <Trash2 size={18} />
+                </button>
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">任务编辑</h3>
+              </div>
+              <button onClick={() => setEditingTask(null)}><X size={20}/></button>
+           </div>
            <div className="space-y-5">
              <div className="space-y-1">
                 <span className="text-[9px] font-black text-slate-300 uppercase pl-1">任务名称</span>
@@ -328,9 +354,12 @@ const App: React.FC = () => {
     return overlays;
   };
 
+  const handleUpdateLibrary = (newLibrary: Task[]) => setLibrary(newLibrary);
+  const handleUpdateHabits = (newHabits: Habit[]) => setHabits(newHabits);
+  const handleUpdateGoals = (newGoals: Goal[]) => setGoals(newGoals);
+
   return (
-    <div className="h-screen w-screen overflow-hidden bg-white text-slate-900 font-sans">
-      {/* 沉浸式启动加载动画 */}
+    <div className="h-full w-full overflow-hidden bg-white text-slate-900 font-sans">
       {isLoading && (
         <div className="fixed inset-0 z-[2000] bg-white flex flex-col items-center justify-center animate-out fade-out zoom-out-110 duration-700 delay-500 fill-mode-forwards">
            <div className="relative mb-8">
@@ -352,13 +381,11 @@ const App: React.FC = () => {
       )}
 
       <div className="h-full flex flex-col relative">
-        {/* 滑动视图主容器 */}
         <div className="flex-1 overflow-hidden relative">
           <div 
             className="view-slider" 
             style={{ transform: `translateX(${getTranslateX()})` }}
           >
-            {/* 概览页 */}
             <div className="view-slide">
               <OverviewPage 
                 days={days} 
@@ -372,7 +399,6 @@ const App: React.FC = () => {
               />
             </div>
             
-            {/* 日程页 */}
             <div className="view-slide">
               <DailyDetailPage 
                 days={days} 
@@ -391,14 +417,15 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* 库页面 */}
             <div className="view-slide">
               <TaskLibraryPage 
                 theme={theme} 
                 library={library} 
                 habits={habits} 
                 goals={goals} 
-                setGoals={setGoals} 
+                setLibrary={handleUpdateLibrary}
+                setHabits={handleUpdateHabits}
+                setGoals={handleUpdateGoals}
                 onEditTask={setEditingTask} 
                 onEditHabit={setEditingHabit} 
                 onOpenSidebar={() => setIsSidebarOpen(true)} 
@@ -408,7 +435,6 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* 复盘页 */}
             <div className="view-slide">
               <ReviewPage 
                 theme={theme} 
@@ -428,11 +454,9 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* 固定底栏 */}
         <BottomNav currentView={currentView} onViewChange={setCurrentView} theme={theme} />
       </div>
 
-      {/* 固定悬浮按钮 */}
       {(currentView === 'daily' || currentView === 'library') && (
         <button 
           onClick={() => setIsCreating({ 
@@ -445,7 +469,6 @@ const App: React.FC = () => {
         </button>
       )}
 
-      {/* 固定侧边栏和 Overlay */}
       <Sidebar 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 

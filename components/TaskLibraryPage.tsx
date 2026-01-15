@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ThemeOption, Task, Goal, Habit, KeyResult } from '../types';
-import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronRight, Flame, CheckCircle2, Clock, X, LayoutGrid, Circle, Bookmark } from 'lucide-react';
+import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronRight, Flame, CheckCircle2, Clock, X, LayoutGrid, Circle, Bookmark, Edit2 } from 'lucide-react';
 
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
 
@@ -11,7 +11,9 @@ interface TaskLibraryPageProps {
   library: Task[];
   habits: Habit[];
   goals: Goal[];
-  setGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
+  setLibrary: (lib: Task[]) => void;
+  setHabits: (habits: Habit[]) => void;
+  setGoals: (goals: Goal[]) => void;
   onEditTask: (task: Task) => void;
   onEditHabit: (habit: Habit) => void;
   onOpenSidebar: () => void;
@@ -21,11 +23,13 @@ interface TaskLibraryPageProps {
 }
 
 const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({ 
-  theme, library, habits, goals, setGoals, onEditTask, onEditHabit, onOpenSidebar, onCreateItem, 
+  theme, library, habits, goals, setLibrary, setHabits, setGoals, onEditTask, onEditHabit, onOpenSidebar, onCreateItem, 
   activeMainTab, setActiveMainTab 
 }) => {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
+  const [editingCategory, setEditingCategory] = useState<{ oldName: string, newName: string } | null>(null);
+  const longPressTimer = useRef<number | null>(null);
   
   const allCategories = useMemo(() => {
     const cats = activeMainTab === 'task' 
@@ -39,6 +43,52 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
   const [activeCategory, setActiveCategory] = useState('全部');
 
   const themeGradient = `linear-gradient(135deg, ${theme.color}, ${theme.color}99)`;
+
+  const handleStartPress = (cat: string) => {
+    if (cat === '全部') return;
+    longPressTimer.current = window.setTimeout(() => {
+      setEditingCategory({ oldName: cat, newName: cat });
+    }, 600);
+  };
+
+  const handleEndPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleUpdateCategory = () => {
+    if (!editingCategory || !editingCategory.newName.trim()) return;
+    const { oldName, newName } = editingCategory;
+
+    if (activeMainTab === 'task') {
+      setLibrary(library.map(t => t.category === oldName ? { ...t, category: newName } : t));
+    } else if (activeMainTab === 'habit') {
+      setHabits(habits.map(h => h.category === oldName ? { ...h, category: newName } : h));
+    } else {
+      setGoals(goals.map(g => g.category === oldName ? { ...g, category: newName } : g));
+    }
+
+    if (activeCategory === oldName) setActiveCategory(newName);
+    setEditingCategory(null);
+  };
+
+  const handleDeleteCategory = () => {
+    if (!editingCategory) return;
+    const { oldName } = editingCategory;
+
+    if (activeMainTab === 'task') {
+      setLibrary(library.map(t => t.category === oldName ? { ...t, category: '默认' } : t));
+    } else if (activeMainTab === 'habit') {
+      setHabits(habits.map(h => h.category === oldName ? { ...h, category: '默认' } : h));
+    } else {
+      setGoals(goals.map(g => g.category === oldName ? { ...g, category: '默认' } : g));
+    }
+
+    if (activeCategory === oldName) setActiveCategory('全部');
+    setEditingCategory(null);
+  };
 
   const toggleGoalExpansion = (id: string) => {
     const next = new Set(expandedGoalIds);
@@ -135,7 +185,10 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
             {allCategories.map(cat => (
               <button 
                 key={cat} 
-                onClick={() => setActiveCategory(cat)}
+                onPointerDown={() => handleStartPress(cat)}
+                onPointerUp={handleEndPress}
+                onPointerLeave={handleEndPress}
+                onClick={() => !editingCategory && setActiveCategory(cat)}
                 className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${activeCategory === cat ? 'text-white border-transparent' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
                 style={{ backgroundColor: activeCategory === cat ? theme.color : undefined }}
               >
@@ -240,7 +293,10 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
 
                  {isExpanded && (
                    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                     <div className="px-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{goal.category}</span></div>
+                     <div className="px-1 flex justify-between items-center">
+                       <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{goal.category}</span>
+                       <button onClick={() => handleDeleteGoal(goal.id)} className="text-rose-300 hover:text-rose-500 p-1"><Trash2 size={14}/></button>
+                     </div>
                      {goal.keyResults.map((kr: any) => {
                        const progress = getKRProgress(kr.id);
                        const linkedTasks = library.filter(t => t.krId === kr.id);
@@ -298,11 +354,41 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
         </button>
       </main>
 
+      {/* 分类编辑弹窗 */}
+      {editingCategory && createPortal(
+        <div className="fixed inset-0 z-[1000] bg-slate-900/60 flex items-center justify-center p-6" onClick={() => setEditingCategory(null)}>
+          <div className="bg-white w-full max-w-xs rounded-sm p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+             <div className="flex justify-between items-center">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">编辑分类</h3>
+                <button onClick={() => setEditingCategory(null)}><X size={18}/></button>
+             </div>
+             <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-300 uppercase pl-1">分类名称</span>
+                <input autoFocus className="w-full bg-slate-50 p-4 font-bold border rounded-sm outline-none focus:bg-white transition-colors" value={editingCategory.newName} onChange={e => setEditingCategory({...editingCategory, newName: e.target.value})} />
+             </div>
+             <div className="flex flex-col gap-2">
+                <button onClick={handleUpdateCategory} className="w-full py-3 text-white font-black uppercase text-[10px] tracking-widest rounded-sm shadow-lg active:scale-95 transition-all" style={{ background: theme.color }}>
+                   保存重命名
+                </button>
+                <button onClick={handleDeleteCategory} className="w-full py-3 bg-rose-50 text-rose-500 font-black uppercase text-[10px] tracking-widest rounded-sm flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
+                   <Trash2 size={14} /> 删除分类 (保留项目)
+                </button>
+             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {editingGoal && createPortal(
         <div className="fixed inset-0 z-[800] bg-slate-900/60 flex items-end justify-center p-4" onClick={() => setEditingGoal(null)}>
           <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">目标编辑</h3>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => handleDeleteGoal(editingGoal.id)} className="p-2 bg-rose-50 text-rose-500 rounded-sm hover:bg-rose-100 transition-colors">
+                    <Trash2 size={18} />
+                  </button>
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">目标编辑</h3>
+                </div>
                 <button onClick={() => setEditingGoal(null)}><X size={20}/></button>
              </div>
              <div className="flex-1 overflow-y-auto no-scrollbar space-y-6">
@@ -346,12 +432,6 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
                       ))}
                    </div>
                 </div>
-                <button 
-                  onClick={() => handleDeleteGoal(editingGoal.id)}
-                  className="w-full py-4 bg-rose-50 text-rose-500 font-black uppercase text-[10px] tracking-widest rounded-sm flex items-center justify-center gap-2 active:bg-rose-100 transition-colors"
-                >
-                  <Trash2 size={14} /> 删除此目标
-                </button>
              </div>
           </div>
         </div>,
