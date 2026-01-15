@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ThemeOption, DayInfo, Habit, ScoreDefinition, Reward } from '../types';
-import { MessageSquare, X, Zap, Settings, Layout, Edit, Trash2, ShoppingBag, Coins, CheckCircle2, Trophy, BarChart3, ChevronLeft, ChevronRight, History, Calendar, Plus, Save } from 'lucide-react';
+import { MessageSquare, X, Zap, Settings, Layout, Edit, Trash2, ShoppingBag, Coins, CheckCircle2, Trophy, BarChart3, ChevronLeft, ChevronRight, History, Calendar, Plus, Save, Activity, Target } from 'lucide-react';
 
 interface ReviewPageProps {
   theme: ThemeOption;
@@ -42,7 +42,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
   const habitsDone = habits.filter(h => h.completedToday).length || 0;
   const habitsTotal = habits.length || 0;
 
-  const getDayScoreSum = (day: DayInfo) => day.scores?.reduce((sum, s) => sum + s.value, 0) || 0;
   const getScoreValue = (day: DayInfo | undefined, defId: string) => day?.scores?.find(s => s.definitionId === defId)?.value ?? 0;
 
   const handleScoreChange = (defId: string, val: number) => {
@@ -54,87 +53,151 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
     onUpdateDay(activeDate, { scores: newScores });
   };
 
-  const getWeekDays = (offset: number) => {
-    if (offset === 0) return days.slice(0, 7);
-    return days.slice(0, 7).map(d => ({
-      ...d,
-      date: d.date - 7,
-      reflection: "上周的复盘内容回顾...",
-      scores: scoreDefs.map(sd => ({ definitionId: sd.id, value: Math.floor(Math.random() * 5) - 2 }))
-    }));
-  };
+  const weekData = useMemo(() => {
+    // 基础逻辑：取当前 days 中的 7 天作为本周数据展示
+    return days.slice(0, 7);
+  }, [days]);
 
-  const weekData = getWeekDays(statsWeekOffset);
+  // 计算本周统计数据
+  const weeklyStats = useMemo(() => {
+    let tDone = 0, tTotal = 0;
+    weekData.forEach(d => {
+      tDone += d.tasks.filter(t => t.completed).length;
+      tTotal += d.tasks.length;
+    });
+
+    // 习惯统计：由于目前 habits 状态是全局的，这里统计当前 habits 列表中已标记为“今日完成”的数量
+    const hDone = habits.filter(h => h.completedToday).length;
+    const hTotal = habits.length;
+
+    return { tDone, tTotal, hDone, hTotal };
+  }, [weekData, habits]);
 
   const renderStatsOverlay = () => (
     createPortal(
       <div className="fixed inset-0 z-[850] bg-white animate-in slide-in-from-bottom duration-300 flex flex-col">
-        <header className="px-6 pt-16 pb-4 border-b flex justify-between items-center bg-white shrink-0">
+        <header className="px-6 pt-16 pb-4 flex justify-between items-center bg-white shrink-0">
           <div className="flex items-center gap-2">
             <BarChart3 size={18} style={{ color: theme.color }} />
-            <h2 className="text-lg font-black uppercase tracking-tighter">复盘统计看板</h2>
+            <h2 className="text-lg font-black uppercase tracking-tighter">数据统计 / STATS</h2>
           </div>
-          <button onClick={() => setShowStats(false)} className="p-2 bg-slate-50 rounded-full"><X size={20}/></button>
+          <button onClick={() => setShowStats(false)} className="p-2 bg-slate-50 rounded-full active:scale-90 transition-all"><X size={20}/></button>
         </header>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-8">
-          <div className="flex items-center justify-between bg-slate-50 p-1.5 rounded-sm">
-            <button onClick={() => setStatsWeekOffset(1)} className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase rounded-sm transition-all ${statsWeekOffset === 1 ? 'bg-white shadow-sm text-slate-800' : 'text-slate-300'}`}>
-              <ChevronLeft size={14} /> 上周数据
-            </button>
-            <button onClick={() => setStatsWeekOffset(0)} className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase rounded-sm transition-all ${statsWeekOffset === 0 ? 'bg-white shadow-sm text-slate-800' : 'text-slate-300'}`}>
-              本周数据 <ChevronRight size={14} />
-            </button>
+          {/* 本周汇总汇总 - 黑色数字风格 */}
+          <div className="grid grid-cols-2 gap-4">
+             <div className="p-5 bg-slate-50 rounded-sm border-none flex flex-col gap-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Trophy size={10} /> 本周任务完成
+                </span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black mono text-black leading-none">{weeklyStats.tDone}</span>
+                  <span className="text-[10px] font-black text-slate-300 mono uppercase">/ {weeklyStats.tTotal} items</span>
+                </div>
+                <div className="w-full h-1 bg-slate-200 rounded-full mt-3 overflow-hidden">
+                   <div className="h-full transition-all duration-1000" style={{ width: `${weeklyStats.tTotal ? (weeklyStats.tDone/weeklyStats.tTotal)*100 : 0}%`, background: theme.color }} />
+                </div>
+             </div>
+             <div className="p-5 bg-slate-50 rounded-sm border-none flex flex-col gap-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Activity size={10} /> 本周习惯达成
+                </span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black mono text-black leading-none">{weeklyStats.hDone}</span>
+                  <span className="text-[10px] font-black text-slate-300 mono uppercase">/ {weeklyStats.hTotal} items</span>
+                </div>
+                <div className="w-full h-1 bg-slate-200 rounded-full mt-3 overflow-hidden">
+                   <div className="h-full transition-all duration-1000" style={{ width: `${weeklyStats.hTotal ? (weeklyStats.hDone/weeklyStats.hTotal)*100 : 0}%`, background: theme.color }} />
+                </div>
+             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 px-1">
-               <Calendar size={12} className="text-slate-300" />
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">多维度心流热力</h3>
+          {/* 多维度热力矩阵表格 */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+               <div className="flex items-center gap-2">
+                 <Calendar size={12} className="text-slate-300" />
+                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">心流热力矩阵</h3>
+               </div>
+               <div className="flex gap-1">
+                 {[0, 1, 2].map(l => (
+                    <div key={l} className="w-1.5 h-1.5 rounded-[1px]" style={{ background: theme.color, opacity: l === 0 ? 0.1 : l === 1 ? 0.4 : 1 }} />
+                 ))}
+               </div>
             </div>
-            {scoreDefs.map(def => (
-              <div key={def.id} className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-[9px] font-black text-slate-500 uppercase">{def.label}</span>
-                  <div className="flex gap-1">
-                    {['M','T','W','T','F','S','S'].map((w, i) => <span key={i} className="w-6 text-center text-[7px] font-black text-slate-300">{w}</span>)}
-                  </div>
+            
+            <div className="bg-slate-50 rounded-sm p-4 overflow-x-auto no-scrollbar">
+              <div className="min-w-[280px]">
+                {/* 表头 */}
+                <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-1 mb-3">
+                  <div />
+                  {['一','二','三','四','五','六','日'].map((w, i) => (
+                    <div key={i} className="text-center text-[8px] font-black text-slate-300 uppercase">{w}</div>
+                  ))}
                 </div>
-                <div className="flex gap-1">
-                  {weekData.map((d, i) => {
-                    const val = getScoreValue(d, def.id);
-                    let opacity = 0.05;
-                    if (val > 0) opacity = 0.2 + (val / 2) * 0.8;
-                    if (val < 0) opacity = 0.1;
-                    return (
-                      <div key={i} className="flex-1 h-8 rounded-[2px] shadow-inner relative group" 
-                           style={{ backgroundColor: val >= 0 ? theme.color : '#cbd5e1', opacity: opacity }}>
-                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-[8px] font-bold text-white mono">{val > 0 ? '+' : ''}{val}</span>
-                         </div>
-                      </div>
-                    );
-                  })}
+
+                {/* 表身：维度 */}
+                <div className="space-y-2">
+                  {scoreDefs.map(def => (
+                    <div key={def.id} className="grid grid-cols-[80px_repeat(7,1fr)] gap-1 items-center">
+                      <div className="text-[9px] font-black text-slate-500 uppercase truncate pr-2">{def.label}</div>
+                      {weekData.map((d, i) => {
+                        const val = getScoreValue(d, def.id);
+                        // 根据分值映射透明度
+                        let opacity = 0.05;
+                        if (val > 0) opacity = 0.15 + (val / 2) * 0.85;
+                        if (val < 0) opacity = 0.1;
+                        
+                        return (
+                          <div 
+                            key={i} 
+                            className="aspect-square rounded-[2px] shadow-inner relative group"
+                            style={{ 
+                              backgroundColor: val >= 0 ? theme.color : '#cbd5e1', 
+                              opacity: opacity 
+                            }}
+                          >
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-[2px] z-10">
+                              <span className="text-[7px] font-black text-white mono">{val > 0 ? '+' : ''}{val}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
 
+          {/* 周记录汇总 */}
           <div className="space-y-4 pb-12">
             <div className="flex items-center gap-2 px-1">
                <History size={12} className="text-slate-300" />
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">周期笔记汇总</h3>
+               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">周期记录汇总</h3>
             </div>
             <div className="space-y-3">
-               {weekData.filter(d => d.reflection).map(d => (
-                 <div key={d.date} className="p-4 bg-slate-50 rounded-sm border border-slate-100 shadow-sm">
-                   <div className="flex justify-between items-center mb-2">
-                     <span className="text-[9px] font-black text-slate-400 mono uppercase tracking-wider">{d.fullDate} · {d.weekday}</span>
-                     <span className="text-[8px] font-black text-white px-2 py-0.5 rounded-[2px]" style={{ background: themeGradient }}>{getDayScoreSum(d)} PTS</span>
+               {weekData.filter(d => d.reflection).length > 0 ? (
+                 weekData.filter(d => d.reflection).map(d => (
+                   <div key={d.date} className="p-4 bg-slate-50 rounded-sm border-none shadow-sm">
+                     <div className="flex justify-between items-center mb-2">
+                       <span className="text-[9px] font-black text-slate-400 mono uppercase tracking-wider">{d.fullDate} · {d.weekday}</span>
+                       <div className="flex gap-1">
+                          {d.scores?.map(s => (
+                             <div key={s.definitionId} className="w-1 h-1 rounded-full" style={{ background: s.value > 0 ? theme.color : '#e2e8f0' }} />
+                          ))}
+                       </div>
+                     </div>
+                     <p className="text-[12px] font-bold text-slate-600 leading-relaxed italic line-clamp-3">{d.reflection}</p>
                    </div>
-                   <p className="text-[12px] font-bold text-slate-600 leading-relaxed italic line-clamp-3">{d.reflection}</p>
+                 ))
+               ) : (
+                 <div className="py-12 flex flex-col items-center justify-center bg-slate-50 rounded-sm border border-dashed border-slate-200 opacity-40">
+                    <MessageSquare size={24} className="text-slate-200 mb-2" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">本周暂无复盘记录</span>
                  </div>
-               ))}
+               )}
             </div>
           </div>
         </div>
@@ -169,7 +232,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
               { icon: Trophy, label: '事项', val: tasksDone, total: tasksTotal },
               { icon: CheckCircle2, label: '习惯', val: habitsDone, total: habitsTotal }
             ].map((item, idx) => (
-              <div key={idx} className="p-3 rounded-sm flex flex-col justify-between h-24 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] transition-transform active:scale-95" style={{ background: themeGradient }}>
+              <div key={idx} className="p-3 rounded-sm flex flex-col justify-between h-24 transition-transform active:scale-95" style={{ background: themeGradient }}>
                 <item.icon size={10} className="text-white/60" strokeWidth={3} />
                 <div className="flex flex-col">
                   <span className="text-xl font-black mono text-white leading-none tracking-tighter">
@@ -183,15 +246,15 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
 
         <button 
           onClick={() => setShowStats(true)}
-          className="w-full p-4 bg-slate-50 border border-slate-100 rounded-sm flex items-center justify-between group hover:bg-slate-100 transition-all shadow-sm"
+          className="w-full p-4 bg-slate-50 rounded-sm flex items-center justify-between group hover:bg-slate-100 transition-all"
         >
            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-sm text-white" style={{ background: themeGradient }}>
+              <div className="p-2 rounded-sm text-white shadow-lg" style={{ background: themeGradient }}>
                 <BarChart3 size={14} />
               </div>
               <div className="text-left">
-                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">周期复盘统计看板</h4>
-                <p className="text-[9px] font-bold text-slate-300 mt-0.5">查看多维度心流热力与笔记汇总</p>
+                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">周期统计汇总</h4>
+                <p className="text-[9px] font-bold text-slate-300 mt-0.5">查看多维度热力矩阵与历史数据</p>
               </div>
            </div>
            <ChevronRight size={16} className="text-slate-200 group-hover:text-slate-400 transition-colors" />
@@ -200,7 +263,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
         <section className="space-y-3">
            <div className="flex items-center justify-between px-1">
               <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><Zap size={12} fill="currentColor"/> 状态自评</h3>
-              <button onClick={() => setShowManageScores(true)} className="p-1 text-slate-300 hover:text-slate-500"><Settings size={12}/></button>
+              <button onClick={() => setShowManageScores(true)} className="p-1 text-slate-300 hover:text-slate-500 transition-colors"><Settings size={12}/></button>
            </div>
            {scoreDefs.map(def => (
               <div key={def.id} className="space-y-2">
@@ -226,13 +289,13 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
             <div className="flex items-center gap-1.5">
               <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[180px]">
                 {reflectionTemplates.map(tmp => (
-                  <button key={tmp.id} onClick={() => onUpdateDay(activeDate, { reflection: (activeDay?.reflection || '') + (activeDay?.reflection ? "\n" : "") + tmp.text })} className="px-2 py-1 bg-slate-50 rounded-sm text-[8px] font-black text-slate-400 uppercase hover:bg-slate-100 whitespace-nowrap">{tmp.name}</button>
+                  <button key={tmp.id} onClick={() => onUpdateDay(activeDate, { reflection: (activeDay?.reflection || '') + (activeDay?.reflection ? "\n" : "") + tmp.text })} className="px-2 py-1 bg-slate-50 rounded-sm text-[8px] font-black text-slate-400 uppercase hover:bg-slate-100 whitespace-nowrap transition-colors">{tmp.name}</button>
                 ))}
               </div>
               <button onClick={() => setIsManagingTemplates(true)} className="p-1 text-slate-300 hover:text-slate-500 transition-colors"><Settings size={12}/></button>
             </div>
           </div>
-          <textarea className="w-full min-h-[140px] bg-slate-50 border border-slate-100 rounded-sm p-4 text-[13px] font-bold text-slate-700 outline-none focus:bg-white focus:shadow-inner transition-all placeholder:text-slate-200" value={activeDay?.reflection || ''} onChange={e => onUpdateDay(activeDate, { reflection: e.target.value })} placeholder="沉淀今日的心路历程..." />
+          <textarea className="w-full min-h-[140px] bg-slate-50 border-none rounded-sm p-4 text-[13px] font-bold text-slate-700 outline-none focus:bg-white transition-all placeholder:text-slate-200" value={activeDay?.reflection || ''} onChange={e => onUpdateDay(activeDate, { reflection: e.target.value })} placeholder="沉淀今日的心路历程..." />
         </section>
       </main>
 
@@ -301,20 +364,20 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
       {/* 统计看板 Overlay */}
       {showStats && renderStatsOverlay()}
 
-      {/* 能量商店 Overlay 等保持不变... */}
+      {/* 能量商店 Overlay */}
       {showShop && createPortal(
         <div className="fixed inset-0 z-[800] bg-white animate-in slide-in-from-right duration-300 flex flex-col">
-           <header className="px-6 pt-16 pb-4 border-b flex justify-between items-center bg-white">
+           <header className="px-6 pt-16 pb-4 flex justify-between items-center bg-white">
               <div className="flex items-center gap-3">
                  <h2 className="text-lg font-black uppercase tracking-tighter">能量商店</h2>
                  <button onClick={() => setIsManagingShop(!isManagingShop)} className={`p-1.5 rounded-sm transition-colors ${isManagingShop ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>
                     <Settings size={14} />
                  </button>
               </div>
-              <button onClick={() => { setShowShop(false); setIsManagingShop(false); }} className="p-2 bg-slate-50 rounded-full"><X size={20}/></button>
+              <button onClick={() => { setShowShop(false); setIsManagingShop(false); }} className="p-2 bg-slate-50 rounded-full active:scale-90 transition-all"><X size={20}/></button>
            </header>
            <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
-              <div className="p-5 rounded-sm flex items-center gap-4 text-white shadow-[0_12px_24px_-8px_rgba(0,0,0,0.2)]" style={{ background: themeGradient }}>
+              <div className="p-5 rounded-sm flex items-center gap-4 text-white shadow-xl" style={{ background: themeGradient }}>
                  <div className="p-2.5 bg-white/20 rounded-full shadow-inner"><Coins size={24} /></div>
                  <div>
                     <div className="text-[9px] font-black uppercase opacity-60">Balance</div>
@@ -323,7 +386,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
               </div>
               <div className="space-y-3">
                 {rewards.map(r => (
-                  <div key={r.id} className="p-4 bg-white border border-slate-100 rounded-sm flex justify-between items-center group shadow-sm hover:shadow-md transition-shadow">
+                  <div key={r.id} className="p-4 bg-white border border-slate-100 rounded-sm flex justify-between items-center group transition-all">
                     <div className="flex items-center gap-3">
                        <div className="w-10 h-10 bg-slate-50 rounded-sm flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">🍹</div>
                        <div>
