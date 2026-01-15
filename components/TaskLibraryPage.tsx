@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ThemeOption, Task, Goal, Habit, KeyResult } from '../types';
-import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronUp, Flame, CheckCircle2, Clock, X, LayoutGrid, Circle, Bookmark } from 'lucide-react';
+import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronRight, Flame, CheckCircle2, Clock, X, LayoutGrid, Circle, Bookmark } from 'lucide-react';
 
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
 
@@ -25,6 +25,7 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
   activeMainTab, setActiveMainTab 
 }) => {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
   
   const allCategories = useMemo(() => {
     const cats = activeMainTab === 'task' 
@@ -39,7 +40,13 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
 
   const themeGradient = `linear-gradient(135deg, ${theme.color}, ${theme.color}99)`;
 
-  // 根据分类生成颜色 (简单的伪随机生成，基于文字哈希)
+  const toggleGoalExpansion = (id: string) => {
+    const next = new Set(expandedGoalIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedGoalIds(next);
+  };
+
   const getCategoryColor = (cat: string) => {
     if (cat === '全部' || !cat) return theme.color;
     let hash = 0;
@@ -49,9 +56,16 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
   };
 
   const getTimeAgo = (timestamp?: number) => {
-    if (!timestamp) return '未开始';
-    const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
-    return days === 0 ? '今天' : `${days}天前`;
+    if (!timestamp) return '从未完成';
+    const diff = Date.now() - timestamp;
+    const minutesAgo = Math.floor(diff / (1000 * 60));
+    const hoursAgo = Math.floor(diff / (1000 * 60 * 60));
+    const daysAgo = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (minutesAgo < 60) return `${minutesAgo}分钟前`;
+    if (hoursAgo < 24) return `${hoursAgo}小时前`;
+    if (daysAgo === 0) return '今天';
+    return `${daysAgo}天前`;
   };
 
   const getKrInfo = (krId?: string) => {
@@ -117,7 +131,6 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
                 </button>
             ))}
          </div>
-         {/* 分类顶栏 */}
          <div className="flex gap-2 px-6 py-3 overflow-x-auto no-scrollbar bg-slate-50/50">
             {allCategories.map(cat => (
               <button 
@@ -169,7 +182,6 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
               className="p-5 rounded-sm mb-3 flex flex-col gap-1 cursor-pointer active:scale-[0.98] transition-all border-none shadow-md relative overflow-hidden group"
               style={{ background: habit.color }}
             >
-              {/* 与块融合的深色进度条 */}
               <div className="absolute inset-y-0 left-0 bg-black/15 transition-all duration-700 pointer-events-none" style={{ width: `${progress}%` }} />
               
               <div className="flex items-center justify-between z-10 relative">
@@ -184,11 +196,11 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
                        {goalTitle && <span className="text-[9px] font-black text-white/50 uppercase tracking-widest leading-none truncate max-w-[120px]">· {goalTitle}</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                       <span className="text-[9px] font-bold text-white/40 uppercase tracking-tight leading-none bg-black/5 px-1.5 py-0.5 rounded-[2px]">
+                       <span className="text-[8px] font-bold text-white/40 uppercase tracking-tight leading-none bg-black/10 px-1.5 py-0.5 rounded-[2px]">
                           {habit.frequencyDays}天{habit.frequencyTimes}次
                        </span>
-                       <span className="text-[9px] font-black text-white/60 mono uppercase tracking-tight leading-none">
-                          已累计: {habit.accumulatedCount} 次
+                       <span className="text-[8px] font-black text-white/70 mono uppercase tracking-tight leading-none">
+                          累计: {habit.accumulatedCount} · 上次: {getTimeAgo(habit.lastCompletedAt)}
                        </span>
                     </div>
                   </div>
@@ -201,66 +213,82 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
           );
         })}
 
-        {activeMainTab === 'goal' && currentList.map((goal: any) => (
-            <div key={goal.id} className="bg-white rounded-sm border border-slate-100 shadow-sm p-5 space-y-4 group transition-all hover:bg-slate-50" onClick={() => setEditingGoal(goal)}>
-               <div className="flex items-center justify-between cursor-pointer">
-                 <div className="flex flex-col gap-1">
-                   <div className="flex items-center gap-3">
-                     <Target size={16} style={{ color: theme.color }} />
-                     <h3 className="text-base font-black text-slate-800">{goal.title}</h3>
-                   </div>
-                   <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-7">{goal.category}</span>
-                 </div>
-                 <Settings2 size={14} className="text-slate-200" />
-               </div>
-               <div className="space-y-6">
-                 {goal.keyResults.map((kr: any) => {
-                   const progress = getKRProgress(kr.id);
-                   const linkedTasks = library.filter(t => t.krId === kr.id);
-                   const linkedHabits = habits.filter(h => h.krId === kr.id);
-                   
-                   return (
-                     <div key={kr.id} className="space-y-2">
-                       <div className="flex justify-between items-end text-[10px] font-black uppercase">
-                         <span className="text-slate-500">{kr.title}</span>
-                         <span className="text-slate-400 mono">{progress}%</span>
-                       </div>
-                       <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
-                          <div className="h-full transition-all duration-1000" style={{ width: `${progress}%`, background: themeGradient }} />
-                       </div>
-                       
-                       {/* 关联的子项列表 */}
-                       {(linkedTasks.length > 0 || linkedHabits.length > 0) && (
-                         <div className="ml-2 pl-3 border-l border-slate-100 mt-2 space-y-1.5">
-                            {linkedHabits.map(h => {
-                              const HabitIcon = HABIT_ICONS[h.iconName] || Activity;
-                              return (
-                                <div key={h.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 py-0.5">
-                                   <div className="w-4 h-4 rounded-[2px] flex items-center justify-center text-white" style={{ background: h.color }}>
-                                      <HabitIcon size={10} />
-                                   </div>
-                                   <span className="truncate">{h.title}</span>
-                                   <span className="text-[8px] font-black mono text-slate-300 ml-auto">{h.accumulatedCount}/{h.targetCount}</span>
-                                </div>
-                              );
-                            })}
-                            {linkedTasks.map(t => (
-                                <div key={t.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 py-0.5">
-                                   <div className={`w-4 h-4 rounded-[2px] border flex items-center justify-center ${t.completed ? 'bg-slate-200 border-transparent text-slate-400' : 'border-slate-200 text-slate-300'}`}>
-                                      {t.completed ? <CheckCircle2 size={10} /> : <Circle size={10} />}
-                                   </div>
-                                   <span className={`truncate ${t.completed ? 'line-through text-slate-300' : ''}`}>{t.title}</span>
-                                   {t.targetCount && <span className="text-[8px] font-black mono text-slate-300 ml-auto">{t.accumulatedCount}/{t.targetCount}</span>}
-                                </div>
-                            ))}
-                         </div>
-                       )}
+        {activeMainTab === 'goal' && currentList.map((goal: any) => {
+            const isExpanded = expandedGoalIds.has(goal.id);
+            return (
+              <div key={goal.id} className={`bg-white rounded-sm border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${isExpanded ? 'p-5 space-y-4 ring-1 ring-slate-100' : 'p-4'}`}>
+                 <div className="flex items-center justify-between">
+                   <div 
+                    className="flex-1 flex items-center gap-3 cursor-pointer group"
+                    onClick={() => toggleGoalExpansion(goal.id)}
+                   >
+                     <div className={`p-1.5 rounded-[4px] transition-all ${isExpanded ? 'text-white scale-110' : 'bg-slate-50 text-slate-300'}`} style={{ background: isExpanded ? theme.color : undefined }}>
+                        <Target size={16} />
                      </div>
-                   );
-                 })}
-               </div>
-            </div>
-        ))}
+                     <div className="flex flex-col">
+                       <h3 className={`text-sm font-black transition-colors ${isExpanded ? 'text-slate-800' : 'text-slate-600'}`}>{goal.title}</h3>
+                       {!isExpanded && <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mt-0.5">{goal.category}</span>}
+                     </div>
+                     <div className={`ml-auto transition-transform duration-300 ${isExpanded ? 'rotate-180 text-slate-400' : 'text-slate-200'}`}>
+                        <ChevronDown size={14} />
+                     </div>
+                   </div>
+                   <button onClick={() => setEditingGoal(goal)} className="p-2 ml-2 text-slate-200 hover:text-slate-400 transition-colors">
+                     <Settings2 size={14} />
+                   </button>
+                 </div>
+
+                 {isExpanded && (
+                   <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                     <div className="px-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{goal.category}</span></div>
+                     {goal.keyResults.map((kr: any) => {
+                       const progress = getKRProgress(kr.id);
+                       const linkedTasks = library.filter(t => t.krId === kr.id);
+                       const linkedHabits = habits.filter(h => h.krId === kr.id);
+                       
+                       return (
+                         <div key={kr.id} className="space-y-2">
+                           <div className="flex justify-between items-end text-[10px] font-black uppercase">
+                             <span className="text-slate-500">{kr.title}</span>
+                             <span className="text-slate-400 mono">{progress}%</span>
+                           </div>
+                           <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                              <div className="h-full transition-all duration-1000" style={{ width: `${progress}%`, background: themeGradient }} />
+                           </div>
+                           
+                           {(linkedTasks.length > 0 || linkedHabits.length > 0) && (
+                             <div className="ml-2 pl-3 border-l border-slate-100 mt-2 space-y-1.5">
+                                {linkedHabits.map(h => {
+                                  const HabitIcon = HABIT_ICONS[h.iconName] || Activity;
+                                  return (
+                                    <div key={h.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 py-0.5">
+                                       <div className="w-4 h-4 rounded-[2px] flex items-center justify-center text-white" style={{ background: h.color }}>
+                                          <HabitIcon size={10} />
+                                       </div>
+                                       <span className="truncate">{h.title}</span>
+                                       <span className="text-[8px] font-black mono text-slate-300 ml-auto">{h.accumulatedCount}/{h.targetCount}</span>
+                                    </div>
+                                  );
+                                })}
+                                {linkedTasks.map(t => (
+                                    <div key={t.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 py-0.5">
+                                       <div className={`w-4 h-4 rounded-[2px] border flex items-center justify-center ${t.completed ? 'bg-slate-200 border-transparent text-slate-400' : 'border-slate-200 text-slate-300'}`}>
+                                          {t.completed ? <CheckCircle2 size={10} /> : <Circle size={10} />}
+                                       </div>
+                                       <span className={`truncate ${t.completed ? 'line-through text-slate-300' : ''}`}>{t.title}</span>
+                                       {t.targetCount && <span className="text-[8px] font-black mono text-slate-300 ml-auto">{t.accumulatedCount}/{t.targetCount}</span>}
+                                    </div>
+                                ))}
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 )}
+              </div>
+            );
+        })}
 
         <button 
           onClick={() => onCreateItem(activeMainTab, activeCategory === '全部' ? '' : activeCategory)}
@@ -274,7 +302,7 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
         <div className="fixed inset-0 z-[800] bg-slate-900/60 flex items-end justify-center p-4" onClick={() => setEditingGoal(null)}>
           <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">目标与关键结果管理</h3>
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">目标编辑</h3>
                 <button onClick={() => setEditingGoal(null)}><X size={20}/></button>
              </div>
              <div className="flex-1 overflow-y-auto no-scrollbar space-y-6">

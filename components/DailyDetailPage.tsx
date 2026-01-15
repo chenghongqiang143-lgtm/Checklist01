@@ -66,9 +66,16 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
   };
 
   const getTimeAgo = (timestamp?: number) => {
-    if (!timestamp) return '未开始';
-    const diffDays = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
-    return diffDays === 0 ? '今天' : `${diffDays}天前`;
+    if (!timestamp) return '从未完成';
+    const diff = Date.now() - timestamp;
+    const minutesAgo = Math.floor(diff / (1000 * 60));
+    const hoursAgo = Math.floor(diff / (1000 * 60 * 60));
+    const daysAgo = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (minutesAgo < 60) return `${minutesAgo}分钟前`;
+    if (hoursAgo < 24) return `${hoursAgo}小时前`;
+    if (daysAgo === 0) return '今天';
+    return `${daysAgo}天前`;
   };
 
   const renderPlanningModal = () => {
@@ -99,7 +106,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                       {krInfo && <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest mt-0.5">{krInfo.goal} · {krInfo.kr}</span>}
                     </div>
                     <div className="flex items-center gap-3">
-                       <span className="text-[9px] font-black text-slate-300 uppercase">{h.frequencyDays}d/{h.frequencyTimes}t</span>
+                       <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{getTimeAgo(h.lastCompletedAt)}</span>
                        <CheckCircle2 size={16} className="text-slate-200" />
                     </div>
                   </div>
@@ -185,10 +192,9 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                       return (
                         <div 
                           key={h.id + hourStr} 
-                          className="group relative flex flex-col gap-0.5 px-3 py-2 rounded-sm shadow-md border-none min-w-[120px] overflow-hidden transition-transform active:scale-95" 
+                          className="group relative flex flex-col gap-0.5 px-3 py-2 rounded-sm shadow-md border-none min-w-[140px] overflow-hidden transition-transform active:scale-95" 
                           style={{ background: h.color }}
                         >
-                          {/* 融合进度条：使用半透明黑色覆盖背景 */}
                           <div 
                             className="absolute inset-y-0 left-0 transition-all duration-1000 pointer-events-none bg-black/15 z-0" 
                             style={{ width: `${habitProgress}%` }} 
@@ -204,7 +210,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                              </span>
                           </div>
                           <div className="flex items-center justify-between mt-0.5 relative z-10 text-white/70">
-                             <span className="text-[7px] font-black uppercase tracking-widest">{h.frequencyDays}d/{h.frequencyTimes}t</span>
+                             <span className="text-[7px] font-black uppercase tracking-widest">上次: {getTimeAgo(h.lastCompletedAt)}</span>
                              {krInfo && <span className="text-[7px] font-black uppercase tracking-tight truncate max-w-[60px]">{krInfo.goal}</span>}
                           </div>
                         </div>

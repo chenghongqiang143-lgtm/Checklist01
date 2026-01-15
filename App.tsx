@@ -9,13 +9,13 @@ import TaskLibraryPage from './components/TaskLibraryPage';
 import OverviewPage from './components/OverviewPage';
 import ReviewPage from './components/ReviewPage';
 import Sidebar from './components/Sidebar';
-import { X, Plus, ChevronDown, ChevronUp, Palette, Check } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronUp, Palette, Check, Loader2 } from 'lucide-react';
 
 import { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin } from 'lucide-react';
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
 
 const INITIAL_HABITS: Habit[] = [
-  { id: 'h1', title: '早起 (06:00)', streak: 12, category: '生活', frequencyDays: 1, frequencyTimes: 1, iconName: 'Sun', color: '#f43f5e', targetCount: 1, accumulatedCount: 0, resetCycle: 'daily', completionTimes: [] },
+  { id: 'h1', title: '早起 (06:00)', streak: 12, category: '生活', frequencyDays: 1, frequencyTimes: 1, iconName: 'Sun', color: '#f43f5e', targetCount: 1, accumulatedCount: 0, resetCycle: 'daily', completionTimes: [], lastCompletedAt: Date.now() - 86400000 },
   { id: 'h2', title: '阅读 30min', streak: 5, category: '学习', frequencyDays: 1, frequencyTimes: 1, iconName: 'Book', color: '#0ea5e9', krId: 'kr1', targetCount: 1, accumulatedCount: 0, resetCycle: 'daily', completionTimes: [] },
 ];
 
@@ -57,7 +57,8 @@ const App: React.FC = () => {
   const [isCreating, setIsCreating] = useState<{ type: 'task' | 'habit' | 'goal' | 'temp_task' | 'reward', defaultCategory?: string } | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
+    // 增加延迟展示动画
+    const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -135,13 +136,10 @@ const App: React.FC = () => {
   const handleAddTaskToDay = (taskTemplate: Task) => {
     setDays(prev => prev.map(d => {
       if (d.date === activeDate) {
-        // 检查是否已经存在
         const existingTask = d.tasks.find(t => t.originalId === taskTemplate.id);
         if (existingTask) {
-          // 撤回逻辑：移除任务
           return { ...d, tasks: d.tasks.filter(t => t.originalId !== taskTemplate.id) };
         } else {
-          // 添加逻辑
           const newTask: Task = {
             ...taskTemplate,
             id: 't-' + Date.now(),
@@ -332,6 +330,27 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-white text-slate-900 font-sans">
+      {/* 沉浸式启动加载动画 */}
+      {isLoading && (
+        <div className="fixed inset-0 z-[2000] bg-white flex flex-col items-center justify-center animate-out fade-out zoom-out-110 duration-700 delay-500 fill-mode-forwards">
+           <div className="relative mb-8">
+              <div className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-inner" />
+              <div className="absolute inset-0 border-4 rounded-full border-t-transparent animate-spin" style={{ borderColor: theme.color, borderTopColor: 'transparent', animationDuration: '0.8s' }} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <div className="w-10 h-10 rounded-sm shadow-xl animate-pulse" style={{ background: theme.color }} />
+              </div>
+           </div>
+           <div className="flex flex-col items-center gap-3">
+              <h2 className="text-2xl font-black tracking-[0.4em] uppercase text-slate-800">极简日程</h2>
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-[1px] bg-slate-200" />
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mono">Minimalist Workspace</span>
+                <span className="w-4 h-[1px] bg-slate-200" />
+              </div>
+           </div>
+        </div>
+      )}
+
       <div className="h-full flex flex-col relative">
         {/* 滑动视图主容器 */}
         <div className="flex-1 overflow-hidden relative">
