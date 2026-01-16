@@ -10,6 +10,14 @@ export interface Reward {
   icon: string;
 }
 
+export interface PurchaseRecord {
+  id: string;
+  rewardId: string;
+  rewardTitle: string;
+  cost: number;
+  timestamp: number;
+}
+
 export interface KeyResult {
   id: string;
   title: string;

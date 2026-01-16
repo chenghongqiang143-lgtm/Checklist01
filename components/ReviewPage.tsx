@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ThemeOption, DayInfo, Habit, ScoreDefinition, Reward } from '../types';
-import { MessageSquare, X, Zap, Settings, Layout, Edit, Trash2, ShoppingBag, Coins, CheckCircle2, Trophy, BarChart3, ChevronLeft, ChevronRight, History, Calendar, Plus, Save, Activity, Target } from 'lucide-react';
+import { ThemeOption, DayInfo, Habit, ScoreDefinition, Reward, PurchaseRecord } from '../types';
+import { MessageSquare, X, Zap, Settings, Layout, Edit, Trash2, ShoppingBag, Coins, CheckCircle2, Trophy, BarChart3, ChevronLeft, ChevronRight, History, Calendar, Plus, Save, Activity, Target, ReceiptText } from 'lucide-react';
 
 interface ReviewPageProps {
   theme: ThemeOption;
@@ -11,21 +11,25 @@ interface ReviewPageProps {
   habits: Habit[];
   rewards: Reward[];
   setRewards: React.Dispatch<React.SetStateAction<Reward[]>>;
+  purchaseHistory: PurchaseRecord[];
+  onPurchase: (reward: Reward) => boolean;
   reflectionTemplates: { id: string, name: string, text: string }[];
   setReflectionTemplates: React.Dispatch<React.SetStateAction<{ id: string, name: string, text: string }[]>>;
   scoreDefs: ScoreDefinition[];
   setScoreDefs: React.Dispatch<React.SetStateAction<ScoreDefinition[]>>;
   onUpdateDay: (date: number, updates: Partial<DayInfo>) => void;
   onOpenSidebar: () => void;
+  currentBalance: number;
 }
 
 const ReviewPage: React.FC<ReviewPageProps> = ({ 
-  theme, activeDate, days, habits, rewards, setRewards, reflectionTemplates, setReflectionTemplates, scoreDefs, setScoreDefs, onUpdateDay, onOpenSidebar 
+  theme, activeDate, days, habits, rewards, setRewards, purchaseHistory, onPurchase, reflectionTemplates, setReflectionTemplates, scoreDefs, setScoreDefs, onUpdateDay, onOpenSidebar, currentBalance 
 }) => {
   const activeDay = days.find(d => d.date === activeDate);
   const [showManageScores, setShowManageScores] = useState(false);
   const [editingScoreDef, setEditingScoreDef] = useState<ScoreDefinition | null>(null);
   const [showShop, setShowShop] = useState(false);
+  const [shopTab, setShopTab] = useState<'items' | 'history'>('items');
   const [showStats, setShowStats] = useState(false);
   const [statsWeekOffset, setStatsWeekOffset] = useState(0); 
   const [isManagingShop, setIsManagingShop] = useState(false);
@@ -36,7 +40,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
 
   const themeGradient = `linear-gradient(135deg, ${theme.color}, ${theme.color}99)`;
 
-  const totalPoints = days.reduce((sum, d) => sum + (d.scores?.reduce((ds, s) => ds + s.value, 0) || 0), 0);
   const tasksDone = activeDay?.tasks.filter(t => t.completed).length || 0;
   const tasksTotal = activeDay?.tasks.length || 0;
   const habitsDone = habits.filter(h => h.completedToday).length || 0;
@@ -67,6 +70,14 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
     const hTotal = habits.length;
     return { tDone, tTotal, hDone, hTotal };
   }, [weekData, habits]);
+
+  const handleRedeem = (reward: Reward) => {
+    if (onPurchase(reward)) {
+      alert(`兑换成功：${reward.title}`);
+    } else {
+      alert('能量不足');
+    }
+  };
 
   const renderStatsOverlay = () => (
     createPortal(
@@ -207,7 +218,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
            </button>
            <button onClick={() => setShowShop(true)} className="p-2 text-slate-400 active:scale-90 transition-transform relative">
               <ShoppingBag size={18}/>
-              {totalPoints > 0 && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 border border-white" />}
+              {currentBalance > 0 && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 border border-white" />}
            </button>
          </div>
       </header>
@@ -215,7 +226,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
       <main className="flex-1 overflow-y-auto no-scrollbar px-6 pb-24 space-y-5 pt-2">
         <section className="grid grid-cols-3 gap-2">
             {[
-              { icon: Coins, label: '能量', val: totalPoints, unit: 'PTS' },
+              { icon: Coins, label: '余额', val: currentBalance, unit: 'PTS' },
               { icon: Trophy, label: '事项', val: tasksDone, total: tasksTotal },
               { icon: CheckCircle2, label: '习惯', val: habitsDone, total: habitsTotal }
             ].map((item, idx) => (
@@ -230,8 +241,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
               </div>
             ))}
         </section>
-
-        {/* 移除了原本在这里的中部“周期统计汇总”大按钮入口 */}
 
         <section className="space-y-3">
            <div className="flex items-center justify-between px-1">
@@ -346,43 +355,81 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
               </div>
               <button onClick={() => { setShowShop(false); setIsManagingShop(false); }} className="p-2 bg-slate-50 rounded-full active:scale-90 transition-all"><X size={20}/></button>
            </header>
+           
+           <div className="flex bg-slate-50 p-1 mx-6 mt-4 rounded-sm shrink-0">
+             <button onClick={() => setShopTab('items')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${shopTab === 'items' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400'}`}>
+                <ShoppingBag size={12} /> 奖品列表
+             </button>
+             <button onClick={() => setShopTab('history')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${shopTab === 'history' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400'}`}>
+                <ReceiptText size={12} /> 购买记录
+             </button>
+           </div>
+
            <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
               <div className="p-5 rounded-sm flex items-center gap-4 text-white shadow-xl" style={{ background: themeGradient }}>
                  <div className="p-2.5 bg-white/20 rounded-full shadow-inner"><Coins size={24} /></div>
                  <div>
-                    <div className="text-[9px] font-black uppercase opacity-60">Balance</div>
-                    <div className="text-3xl font-black mono leading-none">{totalPoints}</div>
+                    <div className="text-[9px] font-black uppercase opacity-60">Available Balance</div>
+                    <div className="text-3xl font-black mono leading-none">{currentBalance}</div>
                  </div>
               </div>
-              <div className="space-y-3">
-                {rewards.map(r => (
-                  <div key={r.id} className="p-4 bg-white border border-slate-100 rounded-sm flex justify-between items-center group transition-all">
-                    <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 bg-slate-50 rounded-sm flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">🍹</div>
-                       <div>
-                          <div className="text-sm font-bold text-slate-800">{r.title}</div>
-                          <div className="text-[10px] text-amber-500 font-black mono mt-0.5">{r.cost} ENERGY</div>
-                       </div>
-                    </div>
-                    {isManagingShop ? (
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingReward(r)} className="p-2 text-blue-400 bg-blue-50 rounded-sm active:scale-90 transition-transform"><Edit size={14}/></button>
-                        <button onClick={() => setRewards(rewards.filter(x => x.id !== r.id))} className="p-2 text-rose-400 bg-rose-50 rounded-sm active:scale-90 transition-transform"><Trash2 size={14}/></button>
+
+              {shopTab === 'items' ? (
+                <div className="space-y-3">
+                  {rewards.map(r => (
+                    <div key={r.id} className="p-4 bg-white border border-slate-100 rounded-sm flex justify-between items-center group transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-50 rounded-sm flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">🎁</div>
+                        <div>
+                            <div className="text-sm font-bold text-slate-800">{r.title}</div>
+                            <div className="text-[10px] text-amber-500 font-black mono mt-0.5">{r.cost} ENERGY</div>
+                        </div>
                       </div>
-                    ) : (
-                      <button className="px-5 py-2 bg-slate-900 text-white text-[9px] font-black rounded-sm active:scale-95 shadow-md">REDEEM</button>
-                    )}
-                  </div>
-                ))}
-                {isManagingShop && (
-                  <button 
-                    onClick={() => setEditingReward({ id: 'r-' + Date.now(), title: '新奖励', cost: 10, icon: 'Gift' })}
-                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-sm text-slate-300 font-black uppercase text-[10px] flex items-center justify-center gap-2 hover:border-slate-300 hover:text-slate-400 transition-all"
-                  >
-                    <Plus size={14} /> 新增奖励项目
-                  </button>
-                )}
-              </div>
+                      {isManagingShop ? (
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingReward(r)} className="p-2 text-blue-400 bg-blue-50 rounded-sm active:scale-90 transition-transform"><Edit size={14}/></button>
+                          <button onClick={() => setRewards(rewards.filter(x => x.id !== r.id))} className="p-2 text-rose-400 bg-rose-50 rounded-sm active:scale-90 transition-transform"><Trash2 size={14}/></button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => handleRedeem(r)}
+                          className="px-5 py-2 bg-slate-900 text-white text-[9px] font-black rounded-sm active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100"
+                          disabled={currentBalance < r.cost}
+                        >
+                          REDEEM
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {isManagingShop && (
+                    <button 
+                      onClick={() => setEditingReward({ id: 'r-' + Date.now(), title: '新奖励', cost: 10, icon: 'Gift' })}
+                      className="w-full py-4 border-2 border-dashed border-slate-200 rounded-sm text-slate-300 font-black uppercase text-[10px] flex items-center justify-center gap-2 hover:border-slate-300 hover:text-slate-400 transition-all"
+                    >
+                      <Plus size={14} /> 新增奖励项目
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {purchaseHistory.length > 0 ? (
+                    purchaseHistory.map(record => (
+                      <div key={record.id} className="p-4 bg-slate-50 rounded-sm flex justify-between items-center border border-slate-100">
+                        <div className="flex flex-col">
+                           <span className="text-sm font-bold text-slate-700">{record.rewardTitle}</span>
+                           <span className="text-[9px] font-black text-slate-300 mono mt-0.5">{new Date(record.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div className="text-[11px] font-black text-rose-400 mono">-{record.cost}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-20 flex flex-col items-center justify-center text-slate-200">
+                       <ReceiptText size={48} strokeWidth={1} className="mb-4 opacity-30" />
+                       <span className="text-[10px] font-black uppercase tracking-[0.2em]">暂无购买记录</span>
+                    </div>
+                  )}
+                </div>
+              )}
            </div>
         </div>,
         document.body

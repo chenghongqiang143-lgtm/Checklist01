@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { AppView, DayInfo, Task, ThemeOption, Goal, Habit, ScoreDefinition, Reward, Subtask, HabitInstance } from './types';
+import { AppView, DayInfo, Task, ThemeOption, Goal, Habit, ScoreDefinition, Reward, Subtask, HabitInstance, PurchaseRecord } from './types';
 import { INITIAL_DAYS, THEME_OPTIONS, LIBRARY_TASKS } from './constants';
 import BottomNav from './components/BottomNav';
 import DailyDetailPage from './components/DailyDetailPage';
@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [library, setLibrary] = useState<Task[]>(LIBRARY_TASKS);
   const [habits, setHabits] = useState<Habit[]>(INITIAL_HABITS);
   const [rewards, setRewards] = useState<Reward[]>(INITIAL_REWARDS);
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseRecord[]>([]);
   const [reflectionTemplates, setReflectionTemplates] = useState(INITIAL_TEMPLATES);
   const [goals, setGoals] = useState<Goal[]>([
     { id: 'g1', title: '掌控前端艺术', category: '学习', keyResults: [{ id: 'kr1', title: '实战项目完成', progress: 30 }] }
@@ -64,6 +65,17 @@ const App: React.FC = () => {
     ];
     return Array.from(new Set(cats)).filter(Boolean).sort();
   }, [library, habits, goals]);
+
+  // 计算能量平衡
+  const totalEarned = useMemo(() => {
+    return days.reduce((sum, d) => sum + (d.scores?.reduce((ds, s) => ds + s.value, 0) || 0), 0);
+  }, [days]);
+
+  const totalSpent = useMemo(() => {
+    return purchaseHistory.reduce((sum, record) => sum + record.cost, 0);
+  }, [purchaseHistory]);
+
+  const currentBalance = totalEarned - totalSpent;
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500);
@@ -155,6 +167,21 @@ const App: React.FC = () => {
   const handleDeleteGoal = (goalId: string) => {
     setGoals(prev => prev.filter(g => g.id !== goalId));
     setEditingGoal(null);
+  };
+
+  const handlePurchaseReward = (reward: Reward) => {
+    if (currentBalance >= reward.cost) {
+      const newRecord: PurchaseRecord = {
+        id: `pr-${Date.now()}`,
+        rewardId: reward.id,
+        rewardTitle: reward.title,
+        cost: reward.cost,
+        timestamp: Date.now()
+      };
+      setPurchaseHistory(prev => [newRecord, ...prev]);
+      return true;
+    }
+    return false;
   };
 
   const handleToggleHabitComplete = (habitId: string, forcedHour?: number) => {
@@ -378,7 +405,7 @@ const App: React.FC = () => {
             <div className="view-slide"><OverviewPage days={days} theme={theme} activeDate={activeDate} onDateChange={setActiveDate} onAddTask={handleAddTaskToDay} onOpenSidebar={() => setIsSidebarOpen(true)} library={library} goals={goals} /></div>
             <div className="view-slide"><DailyDetailPage days={days} goals={goals} habits={habits} activeDate={activeDate} onDateChange={setActiveDate} onToggleLibrary={() => {}} onOpenQuickMenu={() => setIsCreating({ type: 'temp_task' })} onToggleTaskComplete={handleToggleTaskComplete} onToggleHabitComplete={handleToggleHabitComplete} onToggleHabitInstance={handleToggleHabitInstance} onRetractTask={handleRetractTask} onEditTask={setEditingTask} onOpenSidebar={() => setIsSidebarOpen(true)} onUpdateTask={handleUpdateTask} theme={theme} /></div>
             <div className="view-slide"><TaskLibraryPage theme={theme} library={library} habits={habits} goals={goals} setLibrary={setLibrary} setHabits={setHabits} setGoals={setGoals} onEditTask={setEditingTask} onEditHabit={setEditingHabit} onOpenSidebar={() => setIsSidebarOpen(true)} onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} activeMainTab={activeLibraryTab} setActiveMainTab={setActiveLibraryTab} /></div>
-            <div className="view-slide"><ReviewPage theme={theme} activeDate={activeDate} days={days} habits={habits} rewards={rewards} setRewards={setRewards} reflectionTemplates={reflectionTemplates} setReflectionTemplates={setReflectionTemplates} scoreDefs={scoreDefs} setScoreDefs={setScoreDefs} onUpdateDay={(date, updates) => setDays(prev => prev.map(d => d.date === date ? { ...d, ...updates } : d))} onOpenSidebar={() => setIsSidebarOpen(true)} /></div>
+            <div className="view-slide"><ReviewPage theme={theme} activeDate={activeDate} days={days} habits={habits} rewards={rewards} setRewards={setRewards} purchaseHistory={purchaseHistory} onPurchase={handlePurchaseReward} reflectionTemplates={reflectionTemplates} setReflectionTemplates={setReflectionTemplates} scoreDefs={scoreDefs} setScoreDefs={setScoreDefs} onUpdateDay={(date, updates) => setDays(prev => prev.map(d => d.date === date ? { ...d, ...updates } : d))} onOpenSidebar={() => setIsSidebarOpen(true)} currentBalance={currentBalance} /></div>
           </div>
         </div>
         <BottomNav currentView={currentView} onViewChange={setCurrentView} theme={theme} />
