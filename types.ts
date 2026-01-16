@@ -23,13 +23,20 @@ export interface Goal {
   keyResults: KeyResult[];
 }
 
+export interface HabitInstance {
+  id: string;
+  habitId: string;
+  time: string;
+  completed: boolean;
+}
+
 export interface Habit {
   id: string;
   title: string;
   category: string;
   streak: number;
   remark?: string;
-  completionTimes?: string[]; // 新增：记录多次完成的小时字符串，如 ["09:00", "11:00"]
+  completionTimes?: string[]; 
   frequencyDays: number;
   frequencyTimes: number;
   color: string;
@@ -86,6 +93,7 @@ export interface DayInfo {
   fullDate: string;
   isActive?: boolean;
   tasks: Task[];
+  scheduledHabits?: HabitInstance[];
   reflection?: string;
   scores?: DayScore[];
 }

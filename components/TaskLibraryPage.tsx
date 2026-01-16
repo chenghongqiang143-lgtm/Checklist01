@@ -1,9 +1,8 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ThemeOption, Task, Goal, Habit, KeyResult } from '../types';
-// Added ChevronUp to the imports from lucide-react
-import { Hash, Settings2, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronUp, ChevronRight, Flame, CheckCircle2, Clock, X, LayoutGrid, Circle, Bookmark, Edit2, ListTodo } from 'lucide-react';
+import { ThemeOption, Task, Goal, Habit } from '../types';
+import { Hash, Menu, Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin, Target, Trash2, Plus, ChevronDown, ChevronUp, Edit2, ListTodo, X } from 'lucide-react';
 
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
 
@@ -23,6 +22,7 @@ interface TaskLibraryPageProps {
   setActiveMainTab: (tab: 'task' | 'habit' | 'goal') => void;
 }
 
+// 修复: 添加默认导出，并修正 renderHabitItem 中的 handleEndPress 为 handleItemEndPress
 const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({ 
   theme, library, habits, goals, setLibrary, setHabits, setGoals, onEditTask, onEditHabit, onOpenSidebar, onCreateItem, 
   activeMainTab, setActiveMainTab 
@@ -30,7 +30,6 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
   const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [editingCategory, setEditingCategory] = useState<{ oldName: string, newName: string } | null>(null);
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const itemLongPressTimer = useRef<number | null>(null);
@@ -66,7 +65,6 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
     itemLongPressTimer.current = window.setTimeout(() => {
       if (type === 'task') onEditTask(item);
       else if (type === 'habit') onEditHabit(item);
-      else if (type === 'goal') setEditingGoal(item);
       itemLongPressTimer.current = null;
     }, 600);
   };
@@ -165,7 +163,7 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
     const linkedHabits = habits.filter(h => h.krId === krId);
     const total = linkedTasks.length + linkedHabits.length;
     if (total === 0) return 0;
-    const completedTasks = linkedTasks.filter(t => t.completed || (t.targetCount && t.accumulatedCount! >= t.targetCount)).length;
+    const completedTasks = linkedTasks.filter(t => t.completed || (t.targetCount && (t.accumulatedCount || 0) >= t.targetCount)).length;
     const completedHabits = linkedHabits.filter(h => h.completedToday).length;
     return Math.round(((completedTasks + completedHabits) / total) * 100);
   };
@@ -188,7 +186,7 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
         onPointerDown={() => handleItemStartPress(task, 'task')}
         onPointerUp={handleItemEndPress}
         onPointerLeave={handleItemEndPress}
-        onClick={() => hasSubtasks && toggleTaskExpansion(task.id)}
+        onClick={() => onEditTask(task)}
         className="p-4 bg-white rounded-sm flex flex-col relative overflow-hidden group cursor-pointer border border-slate-100 shadow-sm active:scale-[0.99] transition-all mb-3"
       >
         <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: catColor }} />
@@ -200,16 +198,19 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
              <div className="flex items-center gap-2">
                <span className="text-sm font-bold text-slate-700">{task.title}</span>
                {hasSubtasks && (
-                 <div className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-[2px] border border-slate-100">
+                 <button 
+                  onClick={(e) => { e.stopPropagation(); toggleTaskExpansion(task.id); }}
+                  className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-[2px] border border-slate-100"
+                 >
                     <ListTodo size={8} className="text-slate-400" />
                     <span className="text-[7px] font-black text-slate-400 uppercase">{task.subtasks!.length}</span>
                     {isExpanded ? <ChevronUp size={8} className="text-slate-300" /> : <ChevronDown size={8} className="text-slate-300" />}
-                 </div>
+                 </button>
                )}
              </div>
              {krInfo && <span className="text-[9px] font-black text-blue-400 uppercase tracking-tight mt-0.5">{krInfo.goal} · {krInfo.kr}</span>}
           </div>
-          <div className="opacity-0 group-hover:opacity-40 transition-opacity">
+          <div className="opacity-20 group-hover:opacity-100 transition-opacity">
             <Edit2 size={12} className="text-slate-400 shrink-0" />
           </div>
         </div>
@@ -243,6 +244,7 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
         onPointerDown={() => handleItemStartPress(habit, 'habit')}
         onPointerUp={handleItemEndPress}
         onPointerLeave={handleItemEndPress}
+        onClick={() => onEditHabit(habit)}
         className="p-5 rounded-sm mb-3 flex flex-col gap-1 cursor-pointer active:scale-[0.98] transition-all border-none shadow-md relative overflow-hidden group"
         style={{ background: habit.color }}
       >
@@ -277,301 +279,191 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
     );
   };
 
-  const renderGoalItem = (goal: Goal) => {
-    const isExpanded = expandedGoalIds.has(goal.id);
-    return (
-      <div key={goal.id} className={`bg-white rounded-sm border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 mb-3 ${isExpanded ? 'p-5 space-y-4 ring-1 ring-slate-100' : 'p-4'}`}>
-         <div className="flex items-center justify-between">
-           <div 
-            className="flex-1 flex items-center gap-3 cursor-pointer group"
-            onPointerDown={() => handleItemStartPress(goal, 'goal')}
-            onPointerUp={handleItemEndPress}
-            onPointerLeave={handleItemEndPress}
-            onClick={() => !editingGoal && toggleGoalExpansion(goal.id)}
-           >
-             <div className={`p-1.5 rounded-[4px] transition-all ${isExpanded ? 'text-white scale-110' : 'bg-slate-50 text-slate-300'}`} style={{ background: isExpanded ? theme.color : undefined }}>
-                <Target size={16} />
-             </div>
-             <div className="flex flex-col">
-               <h3 className={`text-sm font-black transition-colors ${isExpanded ? 'text-slate-800' : 'text-slate-600'}`}>{goal.title}</h3>
-               {!isExpanded && <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mt-0.5">{goal.category}</span>}
-             </div>
-             <div className={`ml-auto transition-transform duration-300 ${isExpanded ? 'rotate-180 text-slate-400' : 'text-slate-200'}`}>
-                <ChevronDown size={14} />
-             </div>
-           </div>
-         </div>
-         {isExpanded && (
-           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-             {goal.keyResults.map((kr: any) => {
-               const progress = getKRProgress(kr.id);
-               const linkedTasks = library.filter(t => t.krId === kr.id);
-               const linkedHabits = habits.filter(h => h.krId === kr.id);
-               return (
-                 <div key={kr.id} className="space-y-2">
-                   <div className="flex justify-between items-end text-[10px] font-black uppercase">
-                     <span className="text-slate-500">{kr.title}</span>
-                     <span className="text-slate-400 mono">{progress}%</span>
-                   </div>
-                   <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full transition-all duration-1000" style={{ width: `${progress}%`, background: themeGradient }} />
-                   </div>
-                   
-                   <div className="mt-2 ml-2 border-l-2 border-slate-50 pl-3 space-y-1.5">
-                      {linkedHabits.map(h => {
-                         const Icon = HABIT_ICONS[h.iconName] || Activity;
-                         return (
-                           <div key={h.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                             <Icon size={10} style={{ color: h.color }} />
-                             <span className="truncate">{h.title}</span>
-                           </div>
-                         );
-                      })}
-                      {linkedTasks.map(t => (
-                        <div key={t.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                          <Circle size={8} className="text-slate-200" />
-                          <span className="truncate">{t.title}</span>
-                        </div>
-                      ))}
-                      {linkedTasks.length === 0 && linkedHabits.length === 0 && (
-                        <span className="text-[9px] font-black text-slate-200 uppercase italic">暂无链接项</span>
-                      )}
-                   </div>
-                 </div>
-               );
-             })}
-           </div>
-         )}
-      </div>
-    );
-  };
-
-  const renderGroupedContent = () => {
-    const listToRender = activeCategory === '全部' ? allCategories : [activeCategory];
-    
-    return (
-      <div className="space-y-8">
-        {listToRender.map(cat => {
-          let items = [];
-          if (activeMainTab === 'task') items = library.filter(t => t.category === cat);
-          else if (activeMainTab === 'habit') items = habits.filter(h => h.category === cat);
-          else items = goals.filter(g => g.category === cat);
-
-          if (items.length === 0 && activeCategory !== '全部') return (
-            <div key={cat} className="flex flex-col items-center justify-center py-20 text-slate-200 gap-4">
-              <LayoutGrid size={48} />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em]">该分类下暂无内容</span>
-            </div>
-          );
-          if (items.length === 0) return null;
-
-          return (
-            <div key={cat} className="space-y-4">
-              <div className="flex items-center gap-3 px-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{cat}</span>
-                <div className="flex-1 h-[1px] bg-slate-100" />
-              </div>
-              <div className="space-y-0">
-                {items.map(item => {
-                  if (activeMainTab === 'task') return renderTaskItem(item);
-                  if (activeMainTab === 'habit') return renderHabitItem(item);
-                  return renderGoalItem(item);
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const handleUpdateGoal = (updated: Goal) => {
-    setGoals(goals.map(g => g.id === updated.id ? updated : g));
-  };
-
-  const handleDeleteGoal = (id: string) => {
-    setGoals(goals.filter(g => g.id !== id));
-    setEditingGoal(null);
-  };
-
   return (
-    <div className="h-full flex flex-col bg-white overflow-hidden relative">
-      <header className="px-6 pt-16 pb-4 shrink-0 bg-white z-20 shadow-sm">
-         <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <button onClick={onOpenSidebar} className="p-1 -ml-1 text-slate-400 active:scale-90 transition-transform">
-                <Menu size={20} strokeWidth={2.5} />
-              </button>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-4 rounded-full" style={{ background: themeGradient }} />
-                <h1 className="text-lg font-black tracking-tighter uppercase truncate">库 / LIBRARY</h1>
-              </div>
-            </div>
-         </div>
-         <div className="flex gap-6 mb-2 px-1 overflow-x-auto no-scrollbar items-center">
-            {['task', 'habit', 'goal'].map(id => (
-                <button key={id} onClick={() => { setActiveMainTab(id as any); setActiveCategory('全部'); }} className={`text-2xl font-black tracking-tight relative whitespace-nowrap pb-1 transition-colors ${activeMainTab === id ? 'text-slate-800' : 'text-slate-200'}`}>
-                    {id === 'task' ? '任务' : id === 'habit' ? '习惯' : '目标'}
-                    {activeMainTab === id && <div className="absolute -bottom-1 left-0 right-0 h-1 rounded-full" style={{ background: theme.color }} />}
-                </button>
-            ))}
-         </div>
-         <div className="flex items-center gap-2 py-3 bg-slate-50/50 -mx-6 px-6">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar">
-              <button 
-                onClick={() => setActiveCategory('全部')}
-                className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${activeCategory === '全部' ? 'text-white border-transparent' : 'bg-white text-slate-400 border-slate-100'}`}
-                style={{ backgroundColor: activeCategory === '全部' ? theme.color : undefined }}
-              >
-                全部
-              </button>
-              {allCategories.map(cat => (
-                <button 
-                  key={cat} 
-                  onPointerDown={() => handleCatStartPress(cat)}
-                  onPointerUp={handleCatEndPress}
-                  onPointerLeave={handleCatEndPress}
-                  onClick={() => !editingCategory && setActiveCategory(cat)}
-                  className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${activeCategory === cat ? 'text-white border-transparent' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
-                  style={{ backgroundColor: activeCategory === cat ? theme.color : undefined }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-            <button 
-              onClick={() => setIsAddingNewCategory(true)}
-              className="w-8 h-8 flex items-center justify-center shrink-0 bg-white border border-slate-100 text-slate-300 rounded-sm hover:text-slate-600 transition-colors ml-1"
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      <header className="px-6 pt-16 pb-4 shrink-0 bg-white shadow-sm z-10">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={onOpenSidebar} className="p-1 -ml-1 text-slate-400 active:scale-90 transition-transform">
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-4 rounded-full" style={{ background: themeGradient }} />
+            <h1 className="text-lg font-black tracking-tighter uppercase">库 / LIBRARY</h1>
+          </div>
+        </div>
+        
+        <div className="flex bg-slate-100 rounded-sm p-1">
+          {['task', 'habit', 'goal'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveMainTab(tab as any)}
+              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-sm ${
+                activeMainTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              }`}
             >
-              <Plus size={16} />
+              {tab === 'task' ? '待办任务' : tab === 'habit' ? '长期习惯' : '目标愿景'}
             </button>
-         </div>
+          ))}
+        </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar pt-6">
-        {renderGroupedContent()}
+      <main className="flex-1 overflow-y-auto no-scrollbar px-6 pt-4 pb-32">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-1">
+          <button
+            onClick={() => setActiveCategory('全部')}
+            className={`px-4 py-1.5 rounded-sm text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${
+              activeCategory === '全部' 
+                ? 'text-white border-transparent' 
+                : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
+            }`}
+            style={{ backgroundColor: activeCategory === '全部' ? theme.color : undefined }}
+          >
+            全部
+          </button>
+          {allCategories.map((cat) => (
+            <button
+              key={cat}
+              onPointerDown={() => handleCatStartPress(cat)}
+              onPointerUp={handleCatEndPress}
+              onPointerLeave={handleCatEndPress}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-1.5 rounded-sm text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${
+                activeCategory === cat 
+                  ? 'text-white border-transparent' 
+                  : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
+              }`}
+              style={{ backgroundColor: activeCategory === cat ? getCategoryColor(cat) : undefined }}
+            >
+              {cat}
+            </button>
+          ))}
+          <button 
+            onClick={() => setIsAddingNewCategory(true)}
+            className="px-3 py-1.5 rounded-sm text-slate-300 border border-dashed border-slate-200 hover:border-slate-300 transition-all"
+          >
+            <Plus size={12} />
+          </button>
+        </div>
 
-        <button 
-          onClick={() => onCreateItem(activeMainTab, activeCategory === '全部' ? undefined : activeCategory)}
-          className="w-full py-5 border-2 border-dashed border-slate-100 rounded-sm text-slate-300 font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 hover:border-slate-200 transition-all mt-4"
-        >
-          <Plus size={16} /> 新增{activeMainTab === 'task' ? '任务' : activeMainTab === 'habit' ? '习惯' : '目标'}
-        </button>
+        <div className="space-y-1">
+          {activeMainTab === 'task' && library
+            .filter(t => activeCategory === '全部' || t.category === activeCategory)
+            .map(renderTaskItem)}
+          
+          {activeMainTab === 'habit' && habits
+            .filter(h => activeCategory === '全部' || h.category === activeCategory)
+            .map(renderHabitItem)}
+          
+          {activeMainTab === 'goal' && goals
+            .filter(g => activeCategory === '全部' || g.category === activeCategory)
+            .map(goal => (
+              <div 
+                key={goal.id} 
+                className="bg-white border border-slate-100 rounded-sm overflow-hidden mb-4 shadow-sm"
+              >
+                <div 
+                  className="p-4 flex items-center justify-between cursor-pointer active:bg-slate-50 transition-colors"
+                  onClick={() => toggleGoalExpansion(goal.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-sm bg-slate-50 flex items-center justify-center text-slate-400">
+                      <Target size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">{goal.title}</h3>
+                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{goal.category}</span>
+                    </div>
+                  </div>
+                  {expandedGoalIds.has(goal.id) ? <ChevronUp size={16} className="text-slate-300" /> : <ChevronDown size={16} className="text-slate-300" />}
+                </div>
+                
+                {expandedGoalIds.has(goal.id) && (
+                  <div className="px-4 pb-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {goal.keyResults.map(kr => (
+                      <div key={kr.id} className="space-y-1.5">
+                        <div className="flex justify-between items-end">
+                          <span className="text-[10px] font-bold text-slate-600 truncate pr-4">{kr.title}</span>
+                          <span className="text-[9px] font-black mono text-slate-400">{getKRProgress(kr.id)}%</span>
+                        </div>
+                        <div className="w-full h-1 bg-slate-50 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full transition-all duration-1000" 
+                            style={{ width: `${getKRProgress(kr.id)}%`, background: themeGradient }} 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      onClick={() => onCreateItem('goal', goal.category)}
+                      className="w-full py-2 border border-dashed border-slate-100 rounded-sm text-[9px] font-black text-slate-300 uppercase tracking-widest hover:border-slate-200 transition-all flex items-center justify-center gap-1"
+                    >
+                      <Plus size={10} /> 新增关键结果
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
       </main>
 
+      {/* Categories Edit Overlay */}
+      {editingCategory && createPortal(
+        <div className="fixed inset-0 z-[1000] bg-slate-900/60 flex items-end justify-center p-4" onClick={() => setEditingCategory(null)}>
+          <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">编辑分类</h3>
+              <button onClick={() => setEditingCategory(null)}><X size={20}/></button>
+            </div>
+            <div className="space-y-4">
+              <input 
+                autoFocus
+                className="w-full bg-slate-50 p-4 text-lg font-bold rounded-sm border outline-none focus:bg-white transition-colors" 
+                value={editingCategory.newName} 
+                onChange={e => setEditingCategory({...editingCategory, newName: e.target.value})} 
+              />
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleDeleteCategory}
+                  className="flex-1 py-4 bg-rose-50 text-rose-500 text-[10px] font-black uppercase tracking-widest rounded-sm"
+                >
+                  删除分类
+                </button>
+                <button 
+                  onClick={handleUpdateCategory}
+                  className="flex-[2] py-4 text-white text-[10px] font-black uppercase tracking-widest rounded-sm shadow-lg"
+                  style={{ background: themeGradient }}
+                >
+                  保存修改
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* New Category Overlay */}
       {isAddingNewCategory && createPortal(
-        <div className="fixed inset-0 z-[1000] bg-slate-900/60 flex items-center justify-center p-6" onClick={() => setIsAddingNewCategory(false)}>
-          <div className="bg-white w-full max-w-xs rounded-sm p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-             <div className="flex justify-between items-center">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">新增分类</h3>
-                <button onClick={() => setIsAddingNewCategory(false)}><X size={18}/></button>
-             </div>
-             <div className="space-y-1">
-                <span className="text-[9px] font-black text-slate-300 uppercase pl-1">新分类名称</span>
-                <input autoFocus className="w-full bg-slate-50 p-4 font-bold border rounded-sm outline-none focus:bg-white transition-colors" placeholder="输入名称后回车" onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    const name = (e.target as HTMLInputElement).value.trim();
-                    if (!name) return;
-                    if (allCategories.includes(name)) {
-                      alert('分类已存在');
-                      return;
-                    }
-                    onCreateItem(activeMainTab, name);
+        <div className="fixed inset-0 z-[1000] bg-slate-900/60 flex items-end justify-center p-4" onClick={() => setIsAddingNewCategory(false)}>
+          <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">新增分类</h3>
+              <button onClick={() => setIsAddingNewCategory(false)}><X size={20}/></button>
+            </div>
+            <input 
+              autoFocus
+              className="w-full bg-slate-50 p-4 text-lg font-bold rounded-sm border outline-none focus:bg-white transition-colors mb-4" 
+              placeholder="输入分类名称..."
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const val = (e.target as HTMLInputElement).value.trim();
+                  if (val) {
+                    onCreateItem(activeMainTab as any, val);
                     setIsAddingNewCategory(false);
                   }
-                }} />
-             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {editingCategory && createPortal(
-        <div className="fixed inset-0 z-[1000] bg-slate-900/60 flex items-center justify-center p-6" onClick={() => setEditingCategory(null)}>
-          <div className="bg-white w-full max-w-xs rounded-sm p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-             <div className="flex justify-between items-center">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">编辑分类</h3>
-                <button onClick={() => setEditingCategory(null)}><X size={18}/></button>
-             </div>
-             <div className="space-y-1">
-                <span className="text-[9px] font-black text-slate-300 uppercase pl-1">重命名分类</span>
-                <input autoFocus className="w-full bg-slate-50 p-4 font-bold border rounded-sm outline-none focus:bg-white transition-colors" value={editingCategory.newName} onChange={e => setEditingCategory({...editingCategory, newName: e.target.value})} />
-             </div>
-             <div className="flex flex-col gap-2">
-                <button onClick={handleUpdateCategory} className="w-full py-3 text-white font-black uppercase text-[10px] tracking-widest rounded-sm shadow-lg active:scale-95 transition-all" style={{ background: theme.color }}>
-                   应用重命名
-                </button>
-                <button onClick={handleDeleteCategory} className="w-full py-3 bg-rose-50 text-rose-500 font-black uppercase text-[10px] tracking-widest rounded-sm flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
-                   <Trash2 size={14} /> 删除分类 (项目设为默认)
-                </button>
-             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {editingGoal && createPortal(
-        <div className="fixed inset-0 z-[800] bg-slate-900/60 flex items-end justify-center p-4" onClick={() => setEditingGoal(null)}>
-          <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-             <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => handleDeleteGoal(editingGoal.id)} className="p-2 bg-rose-50 text-rose-500 rounded-sm hover:bg-rose-100 transition-colors">
-                    <Trash2 size={18} />
-                  </button>
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">目标编辑</h3>
-                </div>
-                <button onClick={() => setEditingGoal(null)}><X size={20}/></button>
-             </div>
-             <div className="flex-1 overflow-y-auto no-scrollbar space-y-6">
-                <div className="space-y-1.5">
-                   <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">目标标题</span>
-                   <input className="w-full bg-slate-50 p-4 text-lg font-bold border-none outline-none focus:bg-slate-100 rounded-sm transition-colors" value={editingGoal.title} onChange={e => {
-                      const updated = { ...editingGoal, title: e.target.value };
-                      setEditingGoal(updated);
-                      handleUpdateGoal(updated);
-                   }} />
-                </div>
-                <div className="space-y-1.5">
-                   <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-1">所属分类</span>
-                   <select className="w-full bg-slate-50 p-3 text-sm font-bold border-none outline-none focus:bg-slate-100 rounded-sm transition-colors appearance-none" value={editingGoal.category} onChange={e => {
-                      const updated = { ...editingGoal, category: e.target.value };
-                      setEditingGoal(updated);
-                      handleUpdateGoal(updated);
-                   }}>
-                      {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                   </select>
-                </div>
-                <div className="space-y-3">
-                   <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><Plus size={12}/> 关键结果 (KR)</span>
-                      <button onClick={() => {
-                        const newKR = { id: 'kr-' + Date.now(), title: '新关键结果', progress: 0 };
-                        const updated = { ...editingGoal, keyResults: [...editingGoal.keyResults, newKR] };
-                        setEditingGoal(updated);
-                        handleUpdateGoal(updated);
-                      }} className="p-1 text-slate-400 hover:text-slate-800 transition-colors"><Plus size={16}/></button>
-                   </div>
-                   <div className="space-y-2">
-                      {editingGoal.keyResults.map(kr => (
-                        <div key={kr.id} className="flex gap-2">
-                           <input className="flex-1 bg-slate-50 p-3 text-xs font-bold rounded-sm border-none outline-none" value={kr.title} onChange={e => {
-                              const updatedKRs = editingGoal.keyResults.map(k => k.id === kr.id ? { ...k, title: e.target.value } : k);
-                              const updated = { ...editingGoal, keyResults: updatedKRs };
-                              setEditingGoal(updated);
-                              handleUpdateGoal(updated);
-                           }} />
-                           <button onClick={() => {
-                              const updatedKRs = editingGoal.keyResults.filter(k => k.id !== kr.id);
-                              const updated = { ...editingGoal, keyResults: updatedKRs };
-                              setEditingGoal(updated);
-                              handleUpdateGoal(updated);
-                           }} className="p-3 text-rose-300 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
-                        </div>
-                      ))}
-                   </div>
-                </div>
-             </div>
-             <button onClick={() => handleUpdateGoal(editingGoal)} className="w-full py-4 text-white font-black uppercase rounded-sm shadow-xl active:scale-95 transition-all shrink-0 mt-4" style={{ background: theme.color }}>保存并更新</button>
+                }
+              }}
+            />
           </div>
         </div>,
         document.body
