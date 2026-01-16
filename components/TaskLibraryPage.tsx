@@ -22,7 +22,6 @@ interface TaskLibraryPageProps {
   setActiveMainTab: (tab: 'task' | 'habit' | 'goal') => void;
 }
 
-// 修复: 添加默认导出，并修正 renderHabitItem 中的 handleEndPress 为 handleItemEndPress
 const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({ 
   theme, library, habits, goals, setLibrary, setHabits, setGoals, onEditTask, onEditHabit, onOpenSidebar, onCreateItem, 
   activeMainTab, setActiveMainTab 
@@ -298,8 +297,12 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
               key={tab}
               onClick={() => setActiveMainTab(tab as any)}
               className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-sm ${
-                activeMainTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                activeMainTab === tab ? 'shadow-sm' : 'text-slate-400 hover:text-slate-600'
               }`}
+              style={{
+                backgroundColor: activeMainTab === tab ? theme.color : 'transparent',
+                color: activeMainTab === tab ? 'white' : undefined
+              }}
             >
               {tab === 'task' ? '待办任务' : tab === 'habit' ? '长期习惯' : '目标愿景'}
             </button>

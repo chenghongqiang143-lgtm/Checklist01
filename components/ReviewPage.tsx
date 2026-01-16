@@ -54,22 +54,17 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
   };
 
   const weekData = useMemo(() => {
-    // 基础逻辑：取当前 days 中的 7 天作为本周数据展示
     return days.slice(0, 7);
   }, [days]);
 
-  // 计算本周统计数据
   const weeklyStats = useMemo(() => {
     let tDone = 0, tTotal = 0;
     weekData.forEach(d => {
       tDone += d.tasks.filter(t => t.completed).length;
       tTotal += d.tasks.length;
     });
-
-    // 习惯统计：由于目前 habits 状态是全局的，这里统计当前 habits 列表中已标记为“今日完成”的数量
     const hDone = habits.filter(h => h.completedToday).length;
     const hTotal = habits.length;
-
     return { tDone, tTotal, hDone, hTotal };
   }, [weekData, habits]);
 
@@ -85,7 +80,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
         </header>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-8">
-          {/* 本周汇总汇总 - 黑色数字风格 */}
           <div className="grid grid-cols-2 gap-4">
              <div className="p-5 bg-slate-50 rounded-sm border-none flex flex-col gap-1">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -113,7 +107,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
              </div>
           </div>
 
-          {/* 多维度热力矩阵表格 */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
                <div className="flex items-center gap-2">
@@ -129,26 +122,21 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
             
             <div className="bg-slate-50 rounded-sm p-4 overflow-x-auto no-scrollbar">
               <div className="min-w-[280px]">
-                {/* 表头 */}
                 <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-1 mb-3">
                   <div />
                   {['一','二','三','四','五','六','日'].map((w, i) => (
                     <div key={i} className="text-center text-[8px] font-black text-slate-300 uppercase">{w}</div>
                   ))}
                 </div>
-
-                {/* 表身：维度 */}
                 <div className="space-y-2">
                   {scoreDefs.map(def => (
                     <div key={def.id} className="grid grid-cols-[80px_repeat(7,1fr)] gap-1 items-center">
                       <div className="text-[9px] font-black text-slate-500 uppercase truncate pr-2">{def.label}</div>
                       {weekData.map((d, i) => {
                         const val = getScoreValue(d, def.id);
-                        // 根据分值映射透明度
                         let opacity = 0.05;
                         if (val > 0) opacity = 0.15 + (val / 2) * 0.85;
                         if (val < 0) opacity = 0.1;
-                        
                         return (
                           <div 
                             key={i} 
@@ -171,7 +159,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
             </div>
           </div>
 
-          {/* 周记录汇总 */}
           <div className="space-y-4 pb-12">
             <div className="flex items-center gap-2 px-1">
                <History size={12} className="text-slate-300" />
@@ -244,21 +231,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
             ))}
         </section>
 
-        <button 
-          onClick={() => setShowStats(true)}
-          className="w-full p-4 bg-slate-50 rounded-sm flex items-center justify-between group hover:bg-slate-100 transition-all"
-        >
-           <div className="flex items-center gap-3">
-              <div className="p-2 rounded-sm text-white shadow-lg" style={{ background: themeGradient }}>
-                <BarChart3 size={14} />
-              </div>
-              <div className="text-left">
-                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">周期统计汇总</h4>
-                <p className="text-[9px] font-bold text-slate-300 mt-0.5">查看多维度热力矩阵与历史数据</p>
-              </div>
-           </div>
-           <ChevronRight size={16} className="text-slate-200 group-hover:text-slate-400 transition-colors" />
-        </button>
+        {/* 移除了原本在这里的中部“周期统计汇总”大按钮入口 */}
 
         <section className="space-y-3">
            <div className="flex items-center justify-between px-1">
@@ -299,7 +272,6 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
         </section>
       </main>
 
-      {/* 模板管理弹窗 */}
       {isManagingTemplates && createPortal(
         <div className="fixed inset-0 z-[950] bg-slate-900/60 flex items-end justify-center p-4" onClick={() => { setIsManagingTemplates(false); setEditingTemplate(null); }}>
           <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -361,10 +333,8 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
         document.body
       )}
 
-      {/* 统计看板 Overlay */}
       {showStats && renderStatsOverlay()}
 
-      {/* 能量商店 Overlay */}
       {showShop && createPortal(
         <div className="fixed inset-0 z-[800] bg-white animate-in slide-in-from-right duration-300 flex flex-col">
            <header className="px-6 pt-16 pb-4 flex justify-between items-center bg-white">
