@@ -1,18 +1,17 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { AppView, DayInfo, Task, ThemeOption, Goal, Habit, ScoreDefinition, Reward, Subtask, HabitInstance, PurchaseRecord } from './types';
 import { INITIAL_DAYS, THEME_OPTIONS, LIBRARY_TASKS } from './constants';
 import BottomNav from './components/BottomNav';
-import DailyDetailPage from './components/DailyDetailPage';
-import TaskLibraryPage from './components/TaskLibraryPage';
-import OverviewPage from './components/OverviewPage';
-import ReviewPage from './components/ReviewPage';
-import Sidebar from './components/Sidebar';
-import { X, Plus, ChevronDown, ChevronUp, Palette, Check, Loader2, Trash2, Hash, CheckSquare, Square, Target, ListTodo, RotateCcw } from 'lucide-react';
+import { X, Plus, Loader2, Trash2, Target, ListTodo, RotateCcw, Check } from 'lucide-react';
 
-import { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin } from 'lucide-react';
-const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
+// Lazy load page components
+const DailyDetailPage = lazy(() => import('./components/DailyDetailPage'));
+const TaskLibraryPage = lazy(() => import('./components/TaskLibraryPage'));
+const OverviewPage = lazy(() => import('./components/OverviewPage'));
+const ReviewPage = lazy(() => import('./components/ReviewPage'));
+const Sidebar = lazy(() => import('./components/Sidebar'));
 
 const INITIAL_HABITS: Habit[] = [
   { id: 'h1', title: '早起 (06:00)', streak: 12, category: '生活', frequencyDays: 1, frequencyTimes: 1, iconName: 'Sun', color: '#f43f5e', targetCount: 1, accumulatedCount: 0, resetCycle: 'daily', completionTimes: [], lastCompletedAt: Date.now() - 86400000 },
@@ -29,6 +28,93 @@ const INITIAL_TEMPLATES = [
   { id: 'tmp1', name: '三件好事', text: "✨ 今日三件好事：\n1. \n2. \n3. " },
   { id: 'tmp2', name: '成功日记', text: "🏆 今日成就：\n🚩 核心产出：\n💡 待改进点：" },
 ];
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="h-full w-full flex items-center justify-center bg-slate-50/50">
+    <Loader2 className="animate-spin text-slate-300" size={24} />
+  </div>
+);
+
+// Quick Create Modal Component
+const QuickCreateModal: React.FC<{
+  type: 'task' | 'habit' | 'goal' | 'temp_task' | 'reward';
+  defaultCategory?: string;
+  allCategories: string[];
+  themeColor: string;
+  onClose: () => void;
+  onConfirm: (title: string, category: string) => void;
+}> = ({ type, defaultCategory, allCategories, themeColor, onClose, onConfirm }) => {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState(defaultCategory || '默认');
+
+  const getTitle = () => {
+    switch(type) {
+      case 'task': return '新建待办任务 (Library)';
+      case 'habit': return '新建打卡习惯 (Habit)';
+      case 'goal': return '新建年度目标 (Goal)';
+      case 'temp_task': return '今日临时事项 (Daily)';
+      case 'reward': return '新建奖励项 (Reward)';
+      default: return '快速创建';
+    }
+  };
+
+  const categories = Array.from(new Set([...allCategories, '默认', '工作', '学习', '生活', '健康']));
+
+  const handleSubmit = () => {
+    if(!title.trim()) return;
+    onConfirm(title, category);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[700] bg-slate-900/80 flex items-end justify-center p-4" onClick={onClose}>
+        <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+           <div className="flex justify-between mb-6 items-center">
+             <div className="flex items-center gap-2">
+               <div className="w-1 h-4 rounded-full" style={{ background: themeColor }} />
+               <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{getTitle()}</h3>
+             </div>
+             <button onClick={onClose}><X size={20} className="text-slate-300 hover:text-slate-500"/></button>
+           </div>
+           
+           <input 
+             autoFocus 
+             className="w-full bg-slate-50 p-4 text-lg font-bold rounded-sm border-none outline-none focus:bg-slate-100 transition-colors mb-6" 
+             placeholder="输入名称..." 
+             value={title}
+             onChange={e => setTitle(e.target.value)}
+             onKeyDown={e => {
+                if (e.key === 'Enter') handleSubmit();
+             }} 
+           />
+
+           <div className="mb-6">
+              <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2 pl-1">选择分类 / CATEGORY</div>
+              <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto no-scrollbar">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategory(cat)}
+                    className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-wide transition-all ${category === cat ? 'text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                    style={{ background: category === cat ? themeColor : undefined }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+           </div>
+
+           <button 
+            onClick={handleSubmit}
+            className="w-full py-4 text-white font-black uppercase rounded-sm shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+            style={{ background: themeColor }}
+           >
+             <Check size={16} strokeWidth={3} /> 确认创建
+           </button>
+        </div>
+      </div>
+  );
+};
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('overview');
@@ -272,6 +358,17 @@ const App: React.FC = () => {
     })));
   };
 
+  const handleCreateItem = (title: string, category: string) => {
+     if (!isCreating) return;
+     if (isCreating.type === 'goal') setGoals([...goals, { id: 'g-'+Date.now(), title, category, keyResults: [] }]);
+     else if (isCreating.type === 'temp_task') handleAddTaskToDay({ id: 'tmp-'+Date.now(), title, category, type: 'completed' });
+     else if (isCreating.type === 'habit') setHabits([...habits, { id: 'h-'+Date.now(), title, category, streak: 0, frequencyDays: 1, frequencyTimes: 1, color: theme.color, iconName: 'Star', targetCount: 1, accumulatedCount: 0, completionTimes: [] }]);
+     else if (isCreating.type === 'task') setLibrary([...library, { id: 'lib-'+Date.now(), title, category, type: 'focus' }]);
+     else if (isCreating.type === 'reward') setRewards([...rewards, { id: 'r-'+Date.now(), title, cost: 10, icon: 'Gift' }]);
+     
+     setIsCreating(null);
+  };
+
   const getTranslateX = () => {
     switch (currentView) {
       case 'overview': return '0%';
@@ -367,23 +464,15 @@ const App: React.FC = () => {
       </div>
     );
     if (isCreating) overlays.push(
-      <div key="createOverlay" className="fixed inset-0 z-[700] bg-slate-900/80 flex items-end justify-center p-4" onClick={() => setIsCreating(null)}>
-        <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-           <div className="flex justify-between mb-6"><h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">快速创建</h3><button onClick={() => setIsCreating(null)}><X size={20}/></button></div>
-           <input autoFocus className="w-full bg-slate-50 p-4 text-lg font-bold border-none outline-none" placeholder="输入名称回车..." onKeyDown={e => {
-              if (e.key === 'Enter') {
-                const title = (e.target as HTMLInputElement).value;
-                if (!title) return;
-                const defaultCat = isCreating.defaultCategory || '默认';
-                if (isCreating.type === 'goal') setGoals([...goals, { id: 'g-'+Date.now(), title, category: defaultCat, keyResults: [] }]);
-                else if (isCreating.type === 'temp_task') handleAddTaskToDay({ id: 'tmp-'+Date.now(), title, category: '临时', type: 'completed' });
-                else if (isCreating.type === 'habit') setHabits([...habits, { id: 'h-'+Date.now(), title, category: defaultCat, streak: 0, frequencyDays: 1, frequencyTimes: 1, color: theme.color, iconName: 'Star', targetCount: 1, accumulatedCount: 0, completionTimes: [] }]);
-                else if (isCreating.type === 'task') setLibrary([...library, { id: 'lib-'+Date.now(), title, category: defaultCat, type: 'focus' }]);
-                setIsCreating(null);
-              }
-           }} />
-        </div>
-      </div>
+      <QuickCreateModal 
+        key="quickCreate"
+        type={isCreating.type}
+        defaultCategory={isCreating.defaultCategory}
+        allCategories={allCategories}
+        themeColor={theme.color}
+        onClose={() => setIsCreating(null)}
+        onConfirm={handleCreateItem}
+      />
     );
     return overlays;
   };
@@ -402,10 +491,26 @@ const App: React.FC = () => {
       <div className="h-full flex flex-col relative">
         <div className="flex-1 overflow-hidden relative">
           <div className="view-slider" style={{ transform: `translateX(${getTranslateX()})` }}>
-            <div className="view-slide"><OverviewPage days={days} theme={theme} activeDate={activeDate} onDateChange={setActiveDate} onAddTask={handleAddTaskToDay} onOpenSidebar={() => setIsSidebarOpen(true)} library={library} goals={goals} /></div>
-            <div className="view-slide"><DailyDetailPage days={days} goals={goals} habits={habits} activeDate={activeDate} onDateChange={setActiveDate} onToggleLibrary={() => {}} onOpenQuickMenu={() => setIsCreating({ type: 'temp_task' })} onToggleTaskComplete={handleToggleTaskComplete} onToggleHabitComplete={handleToggleHabitComplete} onToggleHabitInstance={handleToggleHabitInstance} onRetractTask={handleRetractTask} onEditTask={setEditingTask} onOpenSidebar={() => setIsSidebarOpen(true)} onUpdateTask={handleUpdateTask} theme={theme} /></div>
-            <div className="view-slide"><TaskLibraryPage theme={theme} library={library} habits={habits} goals={goals} setLibrary={setLibrary} setHabits={setHabits} setGoals={setGoals} onEditTask={setEditingTask} onEditHabit={setEditingHabit} onOpenSidebar={() => setIsSidebarOpen(true)} onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} activeMainTab={activeLibraryTab} setActiveMainTab={setActiveLibraryTab} /></div>
-            <div className="view-slide"><ReviewPage theme={theme} activeDate={activeDate} days={days} habits={habits} rewards={rewards} setRewards={setRewards} purchaseHistory={purchaseHistory} onPurchase={handlePurchaseReward} reflectionTemplates={reflectionTemplates} setReflectionTemplates={setReflectionTemplates} scoreDefs={scoreDefs} setScoreDefs={setScoreDefs} onUpdateDay={(date, updates) => setDays(prev => prev.map(d => d.date === date ? { ...d, ...updates } : d))} onOpenSidebar={() => setIsSidebarOpen(true)} currentBalance={currentBalance} /></div>
+            <div className="view-slide">
+                <Suspense fallback={<PageLoader />}>
+                    <OverviewPage days={days} theme={theme} activeDate={activeDate} onDateChange={setActiveDate} onAddTask={handleAddTaskToDay} onOpenSidebar={() => setIsSidebarOpen(true)} library={library} goals={goals} />
+                </Suspense>
+            </div>
+            <div className="view-slide">
+                <Suspense fallback={<PageLoader />}>
+                    <DailyDetailPage days={days} goals={goals} habits={habits} activeDate={activeDate} onDateChange={setActiveDate} onToggleLibrary={() => {}} onOpenQuickMenu={() => setIsCreating({ type: 'temp_task' })} onToggleTaskComplete={handleToggleTaskComplete} onToggleHabitComplete={handleToggleHabitComplete} onToggleHabitInstance={handleToggleHabitInstance} onRetractTask={handleRetractTask} onEditTask={setEditingTask} onOpenSidebar={() => setIsSidebarOpen(true)} onUpdateTask={handleUpdateTask} theme={theme} />
+                </Suspense>
+            </div>
+            <div className="view-slide">
+                <Suspense fallback={<PageLoader />}>
+                    <TaskLibraryPage theme={theme} library={library} habits={habits} goals={goals} setLibrary={setLibrary} setHabits={setHabits} setGoals={setGoals} onEditTask={setEditingTask} onEditHabit={setEditingHabit} onOpenSidebar={() => setIsSidebarOpen(true)} onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} activeMainTab={activeLibraryTab} setActiveMainTab={setActiveLibraryTab} />
+                </Suspense>
+            </div>
+            <div className="view-slide">
+                <Suspense fallback={<PageLoader />}>
+                    <ReviewPage theme={theme} activeDate={activeDate} days={days} habits={habits} rewards={rewards} setRewards={setRewards} purchaseHistory={purchaseHistory} onPurchase={handlePurchaseReward} reflectionTemplates={reflectionTemplates} setReflectionTemplates={setReflectionTemplates} scoreDefs={scoreDefs} setScoreDefs={setScoreDefs} onUpdateDay={(date, updates) => setDays(prev => prev.map(d => d.date === date ? { ...d, ...updates } : d))} onOpenSidebar={() => setIsSidebarOpen(true)} currentBalance={currentBalance} />
+                </Suspense>
+            </div>
           </div>
         </div>
         <BottomNav currentView={currentView} onViewChange={setCurrentView} theme={theme} />
@@ -413,7 +518,9 @@ const App: React.FC = () => {
       {(currentView === 'daily' || currentView === 'library') && (
         <button onClick={() => setIsCreating({ type: currentView === 'daily' ? 'temp_task' : (activeLibraryTab === 'habit' ? 'habit' : activeLibraryTab === 'goal' ? 'goal' : 'task') })} className="fixed right-6 bottom-28 w-14 h-14 rounded-sm shadow-2xl flex items-center justify-center text-white active:scale-90 transition-all z-[150]" style={{ background: theme.color }}><Plus size={32} /></button>
       )}
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentTheme={theme} onThemeChange={setTheme} onClearTasks={() => setDays(INITIAL_DAYS)} onBackup={() => {}} onRestore={() => {}} />
+      <Suspense fallback={null}>
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentTheme={theme} onThemeChange={setTheme} onClearTasks={() => setDays(INITIAL_DAYS)} onBackup={() => {}} onRestore={() => {}} />
+      </Suspense>
       {renderGlobalOverlays()}
     </div>
   );
