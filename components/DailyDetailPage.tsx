@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { DayInfo, ThemeOption, Task, Goal, Habit, HabitInstance } from '../types';
-import { CheckSquare, Square, Menu, Activity, X, ListTodo, CheckCircle2, RotateCcw, Circle, Plus } from 'lucide-react';
+import { CheckSquare, Square, Menu, Activity, X, ListTodo, CheckCircle2, RotateCcw, Circle, Plus, AlertCircle } from 'lucide-react';
 
 import { Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin } from 'lucide-react';
 const HABIT_ICONS: any = { Activity, Book, Coffee, Heart, Smile, Star, Dumbbell, GlassWater, Moon, Sun, Laptop, Music, Camera, Brush, MapPin };
@@ -131,12 +131,16 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                 );
               })
             ) : (
-              activeDay?.tasks.filter(t => !t.time).map(t => {
+              activeDay?.tasks.filter(t => !t.time && t.priority !== 'waiting').map(t => {
                 const krInfo = getKrInfo(t.krId);
+                const isImportant = t.priority === 'important';
                 return (
-                  <div key={t.id} onClick={() => { onUpdateTask({...t, time: `${planningHour < 10 ? '0' + planningHour : planningHour}:00`}); setPlanningHour(null); }} className="p-4 bg-slate-50 rounded-sm flex flex-col cursor-pointer border border-transparent hover:border-slate-100">
+                  <div key={t.id} onClick={() => { onUpdateTask({...t, time: `${planningHour < 10 ? '0' + planningHour : planningHour}:00`}); setPlanningHour(null); }} className={`p-4 bg-slate-50 rounded-sm flex flex-col cursor-pointer border ${isImportant ? 'border-amber-200 bg-amber-50/50' : 'border-transparent hover:border-slate-100'}`}>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-slate-700">{t.title}</span>
+                      <div className="flex items-center gap-2">
+                         {isImportant && <AlertCircle size={12} className="text-amber-500" />}
+                         <span className={`text-sm font-bold ${isImportant ? 'text-slate-800' : 'text-slate-700'}`}>{t.title}</span>
+                      </div>
                       <ListTodo size={16} className="text-slate-200" />
                     </div>
                     {krInfo && <span className="text-[8px] font-black text-blue-500 uppercase mt-0.5">{krInfo.goal}</span>}
@@ -215,7 +219,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
           )}
           {hours.map(hour => {
             const hourStr = `${hour < 10 ? '0' + hour : hour}:00`;
-            const hTasks = activeDay?.tasks.filter(t => t.time === hourStr);
+            const hTasks = activeDay?.tasks.filter(t => t.time === hourStr && t.priority !== 'waiting');
             const hScheduledInstances = activeDay?.scheduledHabits?.filter(hi => hi.time === hourStr) || [];
             
             return (
@@ -261,7 +265,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                              </button>
                              <button 
                               onClick={(e) => { e.stopPropagation(); onToggleHabitComplete(h.id, hour); }}
-                              className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-black/40 text-white rounded-full translate-x-1 -translate-y-1"
+                              className="absolute -top-1 -left-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-black/40 text-white rounded-full -translate-x-1 -translate-y-1"
                              >
                                <X size={8} strokeWidth={3} />
                              </button>
@@ -273,9 +277,10 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                   {hTasks?.map(task => {
                     const krInfo = getKrInfo(task.krId);
                     const progress = task.targetCount ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount) * 100) : (task.completed ? 100 : 0);
+                    const isImportant = task.priority === 'important';
 
                     return (
-                      <div key={task.id} className="relative rounded-sm mb-2 overflow-hidden shadow-sm border border-slate-100 group" 
+                      <div key={task.id} className={`relative rounded-sm mb-2 overflow-hidden shadow-sm border group ${isImportant ? 'border-amber-400/50' : 'border-slate-100'}`} 
                         onClick={e => { e.stopPropagation(); onToggleTaskComplete(task.id); }}
                         onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onEditTask(task); }}
                       >
@@ -284,6 +289,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
                           <div className="flex items-start justify-between">
                             <div className="flex flex-col flex-1">
                               <div className="flex items-center gap-2">
+                                {isImportant && <AlertCircle size={12} className="text-amber-500 shrink-0" />}
                                 <h4 className={`text-[12px] font-bold text-slate-800 transition-all ${task.completed ? 'line-through opacity-40' : ''}`}>{task.title}</h4>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); onRetractTask(task.id); }}

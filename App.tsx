@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import { AppView, DayInfo, Task, ThemeOption, Goal, Habit, ScoreDefinition, Reward, Subtask, HabitInstance, PurchaseRecord } from './types';
+import { AppView, DayInfo, Task, ThemeOption, Goal, Habit, ScoreDefinition, Reward, Subtask, HabitInstance, PurchaseRecord, TaskPriority } from './types';
 import { INITIAL_DAYS, THEME_OPTIONS, LIBRARY_TASKS } from './constants';
 import BottomNav from './components/BottomNav';
-import { X, Plus, Loader2, Trash2, Target, ListTodo, RotateCcw, Check } from 'lucide-react';
+import { X, Plus, Loader2, Trash2, Target, ListTodo, RotateCcw, Check, AlertCircle, Clock, Circle } from 'lucide-react';
 
 // Lazy load page components
 const DailyDetailPage = lazy(() => import('./components/DailyDetailPage'));
@@ -221,7 +221,8 @@ const App: React.FC = () => {
           krId: updatedTask.krId,
           targetCount: updatedTask.targetCount,
           accumulatedCount: updatedTask.accumulatedCount,
-          subtasks: updatedTask.subtasks 
+          subtasks: updatedTask.subtasks,
+          priority: updatedTask.priority
         } : t));
       }
     }
@@ -363,10 +364,70 @@ const App: React.FC = () => {
      if (isCreating.type === 'goal') setGoals([...goals, { id: 'g-'+Date.now(), title, category, keyResults: [] }]);
      else if (isCreating.type === 'temp_task') handleAddTaskToDay({ id: 'tmp-'+Date.now(), title, category, type: 'completed' });
      else if (isCreating.type === 'habit') setHabits([...habits, { id: 'h-'+Date.now(), title, category, streak: 0, frequencyDays: 1, frequencyTimes: 1, color: theme.color, iconName: 'Star', targetCount: 1, accumulatedCount: 0, completionTimes: [] }]);
-     else if (isCreating.type === 'task') setLibrary([...library, { id: 'lib-'+Date.now(), title, category, type: 'focus' }]);
+     else if (isCreating.type === 'task') setLibrary([...library, { id: 'lib-'+Date.now(), title, category, type: 'focus', priority: 'normal' }]);
      else if (isCreating.type === 'reward') setRewards([...rewards, { id: 'r-'+Date.now(), title, cost: 10, icon: 'Gift' }]);
      
      setIsCreating(null);
+  };
+
+  const handleBackup = () => {
+    const data = {
+      version: '2.8.5',
+      timestamp: Date.now(),
+      days,
+      library,
+      habits,
+      goals,
+      rewards,
+      purchaseHistory,
+      reflectionTemplates,
+      scoreDefs,
+      theme
+    };
+    try {
+      const json = JSON.stringify(data, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        alert('备份数据已复制到剪贴板！\n您可以将其粘贴到记事本保存，或在其他设备上恢复。');
+      }).catch(() => {
+        alert('复制失败，请检查浏览器权限。');
+      });
+    } catch (err) {
+      alert('备份生成失败');
+    }
+  };
+
+  const handleRestore = (json: string) => {
+    if (!json.trim()) return;
+    try {
+      const data = JSON.parse(json);
+      if (data.days) setDays(data.days);
+      if (data.library) setLibrary(data.library);
+      if (data.habits) setHabits(data.habits);
+      if (data.goals) setGoals(data.goals);
+      if (data.rewards) setRewards(data.rewards);
+      if (data.purchaseHistory) setPurchaseHistory(data.purchaseHistory);
+      if (data.reflectionTemplates) setReflectionTemplates(data.reflectionTemplates);
+      if (data.scoreDefs) setScoreDefs(data.scoreDefs);
+      if (data.theme) setTheme(data.theme);
+      alert('数据恢复成功！');
+      setIsSidebarOpen(false);
+    } catch (e) {
+      alert('恢复失败：无效的 JSON 数据格式。');
+    }
+  };
+
+  const handleClearTasks = () => {
+    if (!window.confirm('确定要清空所有日期的日程安排吗？\n\n注意：任务库、习惯定义和目标将被保留，但所有日期的任务记录、打卡记录和复盘内容将被永久删除。')) {
+      return;
+    }
+    setDays(prev => prev.map(d => ({
+      ...d,
+      tasks: [],
+      scheduledHabits: [],
+      scores: [],
+      reflection: ''
+    })));
+    alert('所有日程已清空。');
   };
 
   const getTranslateX = () => {
@@ -393,12 +454,59 @@ const App: React.FC = () => {
            </div>
            <div className="space-y-5 pb-4">
              <div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">习惯标题</span><input className="w-full bg-slate-50 p-4 text-lg font-bold rounded-sm border border-slate-100 outline-none focus:bg-white transition-colors" value={editingHabit.title} onChange={e => setEditingHabit({ ...editingHabit, title: e.target.value })} /></div>
-             <div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">习惯分类</span><select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border border-slate-100 outline-none appearance-none" value={editingHabit.category} onChange={e => setEditingHabit({ ...editingHabit, category: e.target.value })}>{allCategories.map(c => <option key={c} value={c}>{c}</option>)}{!allCategories.includes(editingHabit.category) && <option value={editingHabit.category}>{editingHabit.category}</option>}</select></div>
+             
+             <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black text-slate-300 uppercase pl-1">习惯分类</span>
+                  <select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border border-slate-100 outline-none appearance-none" value={editingHabit.category} onChange={e => setEditingHabit({ ...editingHabit, category: e.target.value })}>{allCategories.map(c => <option key={c} value={c}>{c}</option>)}{!allCategories.includes(editingHabit.category) && <option value={editingHabit.category}>{editingHabit.category}</option>}</select>
+                </div>
+                <div className="space-y-1">
+                   <span className="text-[9px] font-black text-slate-300 uppercase pl-1">关联目标 (KR)</span>
+                   <select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border border-slate-100 outline-none appearance-none" value={editingHabit.krId || ''} onChange={e => setEditingHabit({ ...editingHabit, krId: e.target.value || undefined})}>
+                      <option value="">不关联目标</option>
+                      {goals.map(g => (
+                        <optgroup key={g.id} label={g.title}>
+                          {g.keyResults.map(kr => <option key={kr.id} value={kr.id}>{kr.title}</option>)}
+                        </optgroup>
+                      ))}
+                   </select>
+                </div>
+             </div>
+
              <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-tight pl-1">频率（天数）</span><input type="number" className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border border-slate-100 outline-none" value={editingHabit.frequencyDays || 1} onChange={e => setEditingHabit({...editingHabit, frequencyDays: parseInt(e.target.value) || 1})} /></div><div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-tight pl-1">频率（次数）</span><input type="number" className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border border-slate-100 outline-none" value={editingHabit.frequencyTimes || 1} onChange={e => setEditingHabit({...editingHabit, frequencyTimes: parseInt(e.target.value) || 1})} /></div></div>
              <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">累计完成次数</span><input type="number" className="w-full bg-slate-50 p-3 rounded-sm text-xs font-bold border border-slate-100 outline-none" value={editingHabit.accumulatedCount || 0} onChange={e => setEditingHabit({...editingHabit, accumulatedCount: parseInt(e.target.value) || 0})} /></div><div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">总目标</span><input type="number" className="w-full bg-slate-50 p-3 rounded-sm text-xs font-bold border border-slate-100 outline-none" value={editingHabit.targetCount || 1} onChange={e => setEditingHabit({...editingHabit, targetCount: parseInt(e.target.value) || 1})} /></div></div>
              <button onClick={() => handleUpdateHabit(editingHabit)} className="w-full py-4 text-white font-black uppercase rounded-sm shadow-xl mt-4 active:scale-95 transition-all" style={{ background: editingHabit.color }}>更新并保存</button>
            </div>
         </div>
+      </div>
+    );
+    if (editingGoal) overlays.push(
+      <div key="editGoal" className="fixed inset-0 z-[700] bg-slate-900/80 flex items-end justify-center p-4" onClick={() => setEditingGoal(null)}>
+         <div className="bg-white w-full max-w-md rounded-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+           <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <button onClick={() => handleDeleteGoal(editingGoal.id)} className="p-2 bg-rose-50 text-rose-500 rounded-sm hover:bg-rose-100 transition-colors"><Trash2 size={18} /></button>
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">编辑目标</h3>
+              </div>
+              <button onClick={() => setEditingGoal(null)}><X size={20}/></button>
+           </div>
+           <div className="space-y-4">
+             <div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">目标标题</span><input className="w-full bg-slate-50 p-4 text-lg font-bold rounded-sm border border-slate-100 outline-none focus:bg-white transition-colors" value={editingGoal.title} onChange={e => setEditingGoal({ ...editingGoal, title: e.target.value })} /></div>
+             <div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">分类</span><select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border border-slate-100 outline-none appearance-none" value={editingGoal.category} onChange={e => setEditingGoal({ ...editingGoal, category: e.target.value })}>{allCategories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+             <div className="pt-2"><span className="text-[9px] font-black text-slate-300 uppercase pl-1 mb-2 block">关键结果 (KR)</span>
+               <div className="space-y-2">
+                 {editingGoal.keyResults.map(kr => (
+                    <div key={kr.id} className="flex gap-2">
+                      <input className="flex-1 bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none" value={kr.title} onChange={e => setEditingGoal({...editingGoal, keyResults: editingGoal.keyResults.map(k => k.id === kr.id ? {...k, title: e.target.value} : k)})} />
+                      <button onClick={() => setEditingGoal({...editingGoal, keyResults: editingGoal.keyResults.filter(k => k.id !== kr.id)})} className="p-2 text-rose-300 hover:text-rose-500"><Trash2 size={16}/></button>
+                    </div>
+                 ))}
+                 <button onClick={() => setEditingGoal({...editingGoal, keyResults: [...editingGoal.keyResults, { id: 'kr-'+Date.now(), title: '', progress: 0 }]})} className="w-full py-3 border border-dashed border-slate-200 text-slate-300 text-[10px] font-black uppercase rounded-sm hover:bg-slate-50">添加关键结果</button>
+               </div>
+             </div>
+             <button onClick={() => handleUpdateGoal(editingGoal)} className="w-full py-4 text-white font-black uppercase rounded-sm shadow-xl mt-4 active:scale-95 transition-all" style={{ background: theme.color }}>保存修改</button>
+           </div>
+         </div>
       </div>
     );
     if (editingTask) overlays.push(
@@ -413,11 +521,40 @@ const App: React.FC = () => {
            </div>
            <div className="space-y-5 pb-6">
              <div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">任务名称</span><input className="w-full bg-slate-50 p-4 text-lg font-bold rounded-sm border border-slate-100 outline-none focus:bg-white transition-colors" value={editingTask.title} onChange={e => setEditingTask({ ...editingTask, title: e.target.value })} /></div>
-             <div className="space-y-1"><span className="text-[9px] font-black text-slate-300 uppercase pl-1">分类</span><select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none appearance-none" value={editingTask.category} onChange={e => setEditingTask({...editingTask, category: e.target.value})}>{allCategories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
              
+             {/* 状态选择 (Priority) */}
+             <div className="space-y-2">
+                <span className="text-[9px] font-black text-slate-300 uppercase pl-1">任务状态 / 优先级</span>
+                <div className="flex bg-slate-50 p-1 rounded-sm">
+                   {(['normal', 'important', 'waiting'] as TaskPriority[]).map(p => (
+                      <button 
+                        key={p}
+                        onClick={() => setEditingTask({...editingTask, priority: p})}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-sm transition-all flex items-center justify-center gap-1 ${editingTask.priority === p || (!editingTask.priority && p === 'normal') ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                         {p === 'important' && <AlertCircle size={10} className="text-amber-500" />}
+                         {p === 'waiting' && <Clock size={10} className="text-slate-400" />}
+                         {p === 'normal' && <Circle size={10} className="text-slate-400" />}
+                         {p === 'normal' ? '普通' : p === 'important' ? '重点' : '等待'}
+                      </button>
+                   ))}
+                </div>
+                {editingTask.priority === 'waiting' && (
+                  <p className="text-[8px] text-slate-400 pl-1">* 等待状态的任务不会显示在概览和日程中</p>
+                )}
+             </div>
+
              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                   <span className="text-[9px] font-black text-slate-300 uppercase pl-1 flex items-center gap-1"><Target size={10}/> 关联目标</span>
+                 <div className="space-y-1">
+                   <div className="flex items-center px-1 mb-1">
+                      <span className="text-[9px] font-black text-slate-300 uppercase">分类</span>
+                   </div>
+                   <select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none appearance-none" value={editingTask.category} onChange={e => setEditingTask({...editingTask, category: e.target.value})}>{allCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                 </div>
+                 <div className="space-y-1">
+                   <div className="flex items-center px-1 mb-1">
+                      <span className="text-[9px] font-black text-slate-300 uppercase flex items-center gap-1"><Target size={10}/> 关联目标</span>
+                   </div>
                    <select className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none appearance-none" value={editingTask.krId || ''} onChange={e => setEditingTask({...editingTask, krId: e.target.value || undefined})}>
                       <option value="">不关联目标</option>
                       {goals.map(g => (
@@ -427,20 +564,24 @@ const App: React.FC = () => {
                       ))}
                    </select>
                 </div>
+             </div>
+             
+             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                   <span className="text-[9px] font-black text-slate-300 uppercase pl-1">总目标次数 (Target)</span>
+                   <div className="flex justify-between items-center px-1 mb-1 min-h-[16px]">
+                      <span className="text-[9px] font-black text-slate-300 uppercase flex items-center gap-1"><RotateCcw size={10}/> 当前完成次数</span>
+                      {editingTask.accumulatedCount && editingTask.accumulatedCount > 0 ? (
+                        <button onClick={() => setEditingTask({...editingTask, accumulatedCount: 0})} className="text-[8px] font-black text-rose-400 uppercase tracking-tighter hover:text-rose-600 transition-colors">重置为0</button>
+                      ) : null}
+                   </div>
+                   <input type="number" className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none" value={editingTask.accumulatedCount || 0} onChange={e => setEditingTask({...editingTask, accumulatedCount: parseInt(e.target.value) || 0})} />
+                 </div>
+                 <div className="space-y-1">
+                   <div className="flex justify-between items-center px-1 mb-1 min-h-[16px]">
+                      <span className="text-[9px] font-black text-slate-300 uppercase">总目标次数 (Target)</span>
+                   </div>
                    <input type="number" className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none" value={editingTask.targetCount || 0} onChange={e => setEditingTask({...editingTask, targetCount: parseInt(e.target.value) || 0})} />
                 </div>
-             </div>
-
-             <div className="space-y-1">
-               <div className="flex justify-between items-center px-1">
-                  <span className="text-[9px] font-black text-slate-300 uppercase pl-1 flex items-center gap-1"><RotateCcw size={10}/> 当前完成次数 (Accumulated)</span>
-                  {editingTask.accumulatedCount && editingTask.accumulatedCount > 0 ? (
-                    <button onClick={() => setEditingTask({...editingTask, accumulatedCount: 0})} className="text-[8px] font-black text-rose-400 uppercase tracking-tighter hover:text-rose-600 transition-colors">重置为0</button>
-                  ) : null}
-               </div>
-               <input type="number" className="w-full bg-slate-50 p-3 text-xs font-bold rounded-sm border outline-none" value={editingTask.accumulatedCount || 0} onChange={e => setEditingTask({...editingTask, accumulatedCount: parseInt(e.target.value) || 0})} />
              </div>
 
              <div className="space-y-3">
@@ -503,7 +644,23 @@ const App: React.FC = () => {
             </div>
             <div className="view-slide">
                 <Suspense fallback={<PageLoader />}>
-                    <TaskLibraryPage theme={theme} library={library} habits={habits} goals={goals} setLibrary={setLibrary} setHabits={setHabits} setGoals={setGoals} onEditTask={setEditingTask} onEditHabit={setEditingHabit} onOpenSidebar={() => setIsSidebarOpen(true)} onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} activeMainTab={activeLibraryTab} setActiveMainTab={setActiveLibraryTab} />
+                    <TaskLibraryPage 
+                      theme={theme} 
+                      library={library} 
+                      habits={habits} 
+                      goals={goals} 
+                      setLibrary={setLibrary} 
+                      setHabits={setHabits} 
+                      setGoals={setGoals} 
+                      onEditTask={setEditingTask} 
+                      onEditHabit={setEditingHabit} 
+                      onEditGoal={setEditingGoal} 
+                      onOpenSidebar={() => setIsSidebarOpen(true)} 
+                      onCreateItem={(type, cat) => setIsCreating({ type, defaultCategory: cat })} 
+                      activeMainTab={activeLibraryTab} 
+                      setActiveMainTab={setActiveLibraryTab}
+                      isVisible={currentView === 'library'}
+                    />
                 </Suspense>
             </div>
             <div className="view-slide">
@@ -519,7 +676,15 @@ const App: React.FC = () => {
         <button onClick={() => setIsCreating({ type: currentView === 'daily' ? 'temp_task' : (activeLibraryTab === 'habit' ? 'habit' : activeLibraryTab === 'goal' ? 'goal' : 'task') })} className="fixed right-6 bottom-28 w-14 h-14 rounded-sm shadow-2xl flex items-center justify-center text-white active:scale-90 transition-all z-[150]" style={{ background: theme.color }}><Plus size={32} /></button>
       )}
       <Suspense fallback={null}>
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentTheme={theme} onThemeChange={setTheme} onClearTasks={() => setDays(INITIAL_DAYS)} onBackup={() => {}} onRestore={() => {}} />
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          onClose={() => setIsSidebarOpen(false)} 
+          currentTheme={theme} 
+          onThemeChange={setTheme} 
+          onClearTasks={handleClearTasks} 
+          onBackup={handleBackup} 
+          onRestore={handleRestore} 
+        />
       </Suspense>
       {renderGlobalOverlays()}
     </div>

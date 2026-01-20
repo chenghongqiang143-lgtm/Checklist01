@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { DayInfo, ThemeOption, Task, Goal } from '../types';
-import { Plus, Check, Hash, Bookmark, ChevronLeft, ChevronRight, Menu, Target } from 'lucide-react';
+import { Plus, Check, Hash, Bookmark, ChevronLeft, ChevronRight, Menu, Target, AlertCircle } from 'lucide-react';
 
 interface OverviewPageProps {
   days: DayInfo[];
@@ -88,7 +88,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
       return (
         <div className="space-y-6">
           {categories.map(cat => {
-            const tasksInCategory = library.filter(t => t.category === cat);
+            const tasksInCategory = library.filter(t => t.category === cat && t.priority !== 'waiting');
             if (tasksInCategory.length === 0) return null;
             return (
               <div key={cat} className="space-y-1.5">
@@ -100,11 +100,13 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                   const krInfo = getKrInfo(task.krId);
                   const hasTarget = task.targetCount && task.targetCount > 0;
                   const progress = hasTarget ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount!) * 100) : 0;
+                  const isImportant = task.priority === 'important';
+
                   return (
                     <button
                       key={task.id}
                       onClick={() => onAddTask(task)}
-                      className={`w-full flex flex-col p-3 rounded-sm flat-card group active:scale-95 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] relative overflow-hidden text-left border ${added ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}
+                      className={`w-full flex flex-col p-3 rounded-sm flat-card group active:scale-95 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] relative overflow-hidden text-left border ${added ? 'bg-slate-50 border-slate-200' : isImportant ? 'bg-amber-50/30 border-amber-100' : 'bg-white border-slate-100'}`}
                       style={{ borderColor: added ? theme.color + '44' : undefined }}
                     >
                       {hasTarget && (
@@ -114,7 +116,10 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                         />
                       )}
                       <div className="flex items-center justify-between w-full mb-1 z-10 relative">
-                        <span className={`text-[11px] font-bold truncate pr-4 transition-colors ${added ? 'text-slate-900' : 'text-slate-700'}`}>{task.title}</span>
+                        <span className={`text-[11px] font-bold truncate pr-4 transition-colors flex items-center gap-1 ${added ? 'text-slate-900' : 'text-slate-700'}`}>
+                          {isImportant && <AlertCircle size={10} className="text-amber-500" />}
+                          {task.title}
+                        </span>
                         <div 
                           className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all shrink-0 ${added ? 'text-white' : 'bg-slate-50 text-slate-300'}`}
                           style={{ backgroundColor: added ? theme.color : undefined }}
@@ -145,7 +150,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
     return (
       <div className="space-y-6">
         {goals.map(goal => {
-           const relatedTasks = library.filter(t => goal.keyResults.some(kr => kr.id === t.krId));
+           const relatedTasks = library.filter(t => goal.keyResults.some(kr => kr.id === t.krId) && t.priority !== 'waiting');
            if (relatedTasks.length === 0) return null;
            return (
              <div key={goal.id} className="space-y-3">
@@ -153,7 +158,7 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                  <Target size={10} style={{ color: theme.color }} /> {goal.title}
                </h4>
                {goal.keyResults.map(kr => {
-                 const krTasks = library.filter(t => t.krId === kr.id);
+                 const krTasks = library.filter(t => t.krId === kr.id && t.priority !== 'waiting');
                  if (krTasks.length === 0) return null;
                  return (
                    <div key={kr.id} className="space-y-1.5 ml-2 border-l border-slate-100 pl-3">
@@ -162,11 +167,13 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                         const added = isTaskInActiveDay(task.id);
                         const hasTarget = task.targetCount && task.targetCount > 0;
                         const progress = hasTarget ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount!) * 100) : 0;
+                        const isImportant = task.priority === 'important';
+
                         return (
                           <button
                               key={task.id}
                               onClick={() => onAddTask(task)}
-                              className={`w-full flex flex-col p-3 rounded-sm flat-card group active:scale-95 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] text-left border relative overflow-hidden ${added ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}
+                              className={`w-full flex flex-col p-3 rounded-sm flat-card group active:scale-95 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] text-left border relative overflow-hidden ${added ? 'bg-slate-50 border-slate-200' : isImportant ? 'bg-amber-50/30 border-amber-100' : 'bg-white border-slate-100'}`}
                               style={{ borderColor: added ? theme.color + '44' : undefined }}
                             >
                               {hasTarget && (
@@ -176,7 +183,10 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                                 />
                               )}
                               <div className="flex items-center justify-between w-full mb-1 z-10 relative">
-                                <span className={`text-[11px] font-bold truncate pr-4 transition-colors ${added ? 'text-slate-900' : 'text-slate-700'}`}>{task.title}</span>
+                                <span className={`text-[11px] font-bold truncate pr-4 transition-colors flex items-center gap-1 ${added ? 'text-slate-900' : 'text-slate-700'}`}>
+                                  {isImportant && <AlertCircle size={10} className="text-amber-500" />}
+                                  {task.title}
+                                </span>
                                 <div 
                                   className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all shrink-0 ${added ? 'text-white' : 'bg-slate-50 text-slate-300'}`}
                                   style={{ backgroundColor: added ? theme.color : undefined }}
@@ -279,15 +289,17 @@ const OverviewPage: React.FC<OverviewPageProps> = ({ days, theme, activeDate, on
                   </div>
                   
                   <div className="space-y-1">
-                    {day.tasks.length > 0 ? (
-                      day.tasks.map((task) => {
+                    {day.tasks.filter(t => t.priority !== 'waiting').length > 0 ? (
+                      day.tasks.filter(t => t.priority !== 'waiting').map((task) => {
                         const hasTarget = task.targetCount && task.targetCount > 0;
                         const progress = hasTarget ? Math.min(100, ((task.accumulatedCount || 0) / task.targetCount!) * 100) : 0;
+                        const isImportant = task.priority === 'important';
+
                         return (
                           <div 
                             key={task.id} 
                             className={`text-[9px] font-bold truncate px-1.5 py-0.5 rounded-[2px] flex items-center justify-between gap-1 relative overflow-hidden ${
-                              isActive ? 'bg-white/20 text-white' : 'bg-white text-slate-500 shadow-sm'
+                              isActive ? 'bg-white/20 text-white' : isImportant ? 'bg-amber-50 text-slate-600 shadow-sm border border-amber-100' : 'bg-white text-slate-500 shadow-sm'
                             }`}
                           >
                             {hasTarget && (

@@ -2,6 +2,7 @@
 export type TaskType = 'completed' | 'focus' | 'learning' | 'empty';
 export type LibraryTab = 'task' | 'habit' | 'goal' | 'note';
 export type ResetCycle = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+export type TaskPriority = 'normal' | 'important' | 'waiting';
 
 export interface Reward {
   id: string;
@@ -93,6 +94,7 @@ export interface Task {
   resetCycle?: ResetCycle;
   lastCompletedAt?: number;
   subtasks?: Subtask[];
+  priority?: TaskPriority;
 }
 
 export interface DayInfo {

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ThemeOption, DayInfo, Habit, ScoreDefinition, Reward, PurchaseRecord } from '../types';
@@ -22,6 +21,14 @@ interface ReviewPageProps {
   currentBalance: number;
 }
 
+interface ChartData {
+  date: number;
+  fullDate: string;
+  weekday: string;
+  breakdown: { [key: string]: number };
+  total: number;
+}
+
 const ReviewPage: React.FC<ReviewPageProps> = ({ 
   theme, activeDate, days, habits, rewards, setRewards, purchaseHistory, onPurchase, reflectionTemplates, setReflectionTemplates, scoreDefs, setScoreDefs, onUpdateDay, onOpenSidebar, currentBalance 
 }) => {
@@ -31,7 +38,7 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
   const [showShop, setShowShop] = useState(false);
   const [shopTab, setShopTab] = useState<'items' | 'history'>('items');
   const [showStats, setShowStats] = useState(false);
-  const [statsWeekOffset, setStatsWeekOffset] = useState(0); 
+  const [statsWeekOffset, setStatsWeekOffset] = useState<number>(0); 
   const [isManagingShop, setIsManagingShop] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
   
@@ -56,20 +63,53 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
     onUpdateDay(activeDate, { scores: newScores });
   };
 
-  const weekData = useMemo(() => {
-    return days.slice(0, 7);
+  const currentWeekData = useMemo(() => {
+    return days.slice(0, 7); // For review history section
   }, [days]);
 
-  const weeklyStats = useMemo(() => {
-    let tDone = 0, tTotal = 0;
-    weekData.forEach(d => {
-      tDone += d.tasks.filter(t => t.completed).length;
-      tTotal += d.tasks.length;
-    });
-    const hDone = habits.filter(h => h.completedToday).length;
-    const hTotal = habits.length;
-    return { tDone, tTotal, hDone, hTotal };
-  }, [weekData, habits]);
+  // Generate data for the Stats Overlay based on statsWeekOffset
+  const statsWeekData: ChartData[] = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay() || 7; // 1 (Mon) - 7 (Sun)
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1 + (statsWeekOffset * 7));
+
+    const week: ChartData[] = [];
+    const weekdays = ['一','二','三','四','五','六','日'];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateVal = d.getDate();
+      
+      const dayInfo = days.find(day => day.date === dateVal);
+
+      // Aggregate completed tasks
+      const completedTasks = dayInfo?.tasks.filter(t => t.completed) || [];
+      
+      // Aggregate completed habits
+      const completedHabits = dayInfo?.scheduledHabits?.filter(h => h.completed).map(hi => {
+         const parent = habits.find(h => h.id === hi.habitId);
+         return { ...hi, category: parent?.category || '默认' };
+      }) || [];
+
+      // Merge and grouping
+      const breakdown: {[key: string]: number} = {};
+      [...completedTasks, ...completedHabits].forEach(item => {
+         const cat = item.category || '默认';
+         breakdown[cat] = (breakdown[cat] || 0) + 1;
+      });
+
+      week.push({
+        date: dateVal,
+        fullDate: `${d.getMonth() + 1}月${dateVal}日`,
+        weekday: weekdays[i],
+        breakdown,
+        total: Object.values(breakdown).reduce((a, b) => a + b, 0)
+      });
+    }
+    return week;
+  }, [statsWeekOffset, days, habits]);
 
   const handleRedeem = (reward: Reward) => {
     if (onPurchase(reward)) {
@@ -79,8 +119,21 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
     }
   };
 
-  const renderStatsOverlay = () => (
-    createPortal(
+  const getCategoryColor = (cat: string) => {
+    if (!cat || cat === '默认') return '#cbd5e1';
+    let hash = 0;
+    for (let i = 0; i < cat.length; i++) hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+    const h = Math.abs(hash % 360);
+    return `hsl(${h}, 70%, 65%)`;
+  };
+
+  const renderStatsOverlay = () => {
+    const maxTotal = Math.max(...statsWeekData.map(d => d.total), 4); // Min max 4 to avoid huge bars for 1 item
+    // Use reduce instead of flatMap to ensure type safety and compatibility
+    const allKeys = statsWeekData.reduce((acc: string[], d) => acc.concat(Object.keys(d.breakdown)), [] as string[]);
+    const allCategories = Array.from(new Set(allKeys)).sort();
+
+    return createPortal(
       <div className="fixed inset-0 z-[850] bg-white animate-in slide-in-from-bottom duration-300 flex flex-col">
         <header className="px-6 pt-16 pb-4 flex justify-between items-center bg-white shrink-0">
           <div className="flex items-center gap-2">
@@ -91,82 +144,60 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
         </header>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-8">
-          <div className="grid grid-cols-2 gap-4">
-             <div className="p-5 bg-slate-50 rounded-sm border-none flex flex-col gap-1">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Trophy size={10} /> 本周任务完成
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black mono text-black leading-none">{weeklyStats.tDone}</span>
-                  <span className="text-[10px] font-black text-slate-300 mono uppercase">/ {weeklyStats.tTotal} items</span>
-                </div>
-                <div className="w-full h-1 bg-slate-200 rounded-full mt-3 overflow-hidden">
-                   <div className="h-full transition-all duration-1000" style={{ width: `${weeklyStats.tTotal ? (weeklyStats.tDone/weeklyStats.tTotal)*100 : 0}%`, background: theme.color }} />
-                </div>
-             </div>
-             <div className="p-5 bg-slate-50 rounded-sm border-none flex flex-col gap-1">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Activity size={10} /> 本周习惯达成
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black mono text-black leading-none">{weeklyStats.hDone}</span>
-                  <span className="text-[10px] font-black text-slate-300 mono uppercase">/ {weeklyStats.hTotal} items</span>
-                </div>
-                <div className="w-full h-1 bg-slate-200 rounded-full mt-3 overflow-hidden">
-                   <div className="h-full transition-all duration-1000" style={{ width: `${weeklyStats.hTotal ? (weeklyStats.hDone/weeklyStats.hTotal)*100 : 0}%`, background: theme.color }} />
-                </div>
-             </div>
-          </div>
-
+          
+          {/* Chart Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
                <div className="flex items-center gap-2">
-                 <Calendar size={12} className="text-slate-300" />
-                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">心流热力矩阵</h3>
+                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">各分类条形堆积图</h3>
                </div>
-               <div className="flex gap-1">
-                 {[0, 1, 2].map(l => (
-                    <div key={l} className="w-1.5 h-1.5 rounded-[1px]" style={{ background: theme.color, opacity: l === 0 ? 0.1 : l === 1 ? 0.4 : 1 }} />
-                 ))}
+               <div className="flex items-center bg-slate-100 rounded-sm p-0.5">
+                 <button onClick={() => setStatsWeekOffset(statsWeekOffset - 1)} className="p-1.5 text-slate-400 hover:text-slate-700 active:scale-90 transition-transform"><ChevronLeft size={14}/></button>
+                 <span className="text-[9px] font-black w-24 text-center text-slate-500 uppercase">
+                    {statsWeekOffset === 0 ? '本周' : statsWeekOffset === -1 ? '上周' : statsWeekOffset === 1 ? '下周' : `${Math.abs(statsWeekOffset)}周${statsWeekOffset > 0 ? '后' : '前'}`}
+                 </span>
+                 <button onClick={() => setStatsWeekOffset(statsWeekOffset + 1)} className="p-1.5 text-slate-400 hover:text-slate-700 active:scale-90 transition-transform"><ChevronRight size={14}/></button>
                </div>
             </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-2 px-1">
+              {allCategories.map(cat => (
+                <div key={cat} className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(cat) }} />
+                  <span className="text-[9px] font-bold text-slate-400">{cat}</span>
+                </div>
+              ))}
+            </div>
             
-            <div className="bg-slate-50 rounded-sm p-4 overflow-x-auto no-scrollbar">
-              <div className="min-w-[280px]">
-                <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-1 mb-3">
-                  <div />
-                  {['一','二','三','四','五','六','日'].map((w, i) => (
-                    <div key={i} className="text-center text-[8px] font-black text-slate-300 uppercase">{w}</div>
-                  ))}
+            <div className="bg-slate-50 rounded-sm p-4 h-64 flex flex-col justify-end">
+              {statsWeekData.some(d => d.total > 0) ? (
+                <div className="flex items-end justify-between h-full gap-2">
+                   {statsWeekData.map((d, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                         <span className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity mb-auto mt-2">{d.total}</span>
+                         <div className="w-full max-w-[28px] bg-slate-200/50 rounded-sm flex flex-col-reverse overflow-hidden relative transition-all hover:scale-105" style={{ height: `${(d.total / maxTotal) * 100}%`, minHeight: d.total > 0 ? '4px' : '0' }}>
+                            {Object.entries(d.breakdown).map(([cat, count], idx) => (
+                              <div 
+                                key={cat} 
+                                className="w-full transition-all relative border-t border-white/20 first:border-0"
+                                style={{ height: `${(count / d.total) * 100}%`, backgroundColor: getCategoryColor(cat) }}
+                              />
+                            ))}
+                         </div>
+                         <div className="text-center">
+                            <div className="text-[9px] font-black text-slate-300 uppercase mb-0.5">{d.weekday}</div>
+                            <div className="text-[7px] font-bold text-slate-300 mono scale-75">{d.date}</div>
+                         </div>
+                      </div>
+                   ))}
                 </div>
-                <div className="space-y-2">
-                  {scoreDefs.map(def => (
-                    <div key={def.id} className="grid grid-cols-[80px_repeat(7,1fr)] gap-1 items-center">
-                      <div className="text-[9px] font-black text-slate-500 uppercase truncate pr-2">{def.label}</div>
-                      {weekData.map((d, i) => {
-                        const val = getScoreValue(d, def.id);
-                        let opacity = 0.05;
-                        if (val > 0) opacity = 0.15 + (val / 2) * 0.85;
-                        if (val < 0) opacity = 0.1;
-                        return (
-                          <div 
-                            key={i} 
-                            className="aspect-square rounded-[2px] shadow-inner relative group"
-                            style={{ 
-                              backgroundColor: val >= 0 ? theme.color : '#cbd5e1', 
-                              opacity: opacity 
-                            }}
-                          >
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-[2px] z-10">
-                              <span className="text-[7px] font-black text-white mono">{val > 0 ? '+' : ''}{val}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                  <BarChart3 size={32} className="mb-2 opacity-20" />
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-50">该周暂无数据</span>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -176,8 +207,8 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">周期记录汇总</h3>
             </div>
             <div className="space-y-3">
-               {weekData.filter(d => d.reflection).length > 0 ? (
-                 weekData.filter(d => d.reflection).map(d => (
+               {currentWeekData.filter(d => d.reflection).length > 0 ? (
+                 currentWeekData.filter(d => d.reflection).map(d => (
                    <div key={d.date} className="p-4 bg-slate-50 rounded-sm border-none shadow-sm">
                      <div className="flex justify-between items-center mb-2">
                        <span className="text-[9px] font-black text-slate-400 mono uppercase tracking-wider">{d.fullDate} · {d.weekday}</span>
@@ -201,8 +232,8 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
         </div>
       </div>,
       document.body
-    )
-  );
+    );
+  };
 
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden">
