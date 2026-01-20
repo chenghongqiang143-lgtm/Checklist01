@@ -195,13 +195,22 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
               <button 
                 key={day.date} 
                 onClick={() => onDateChange(day.date)} 
-                className={`flex-1 min-w-[44px] flex flex-col items-center py-2.5 rounded-sm transition-all relative ${isActive ? 'text-white shadow-md' : 'text-slate-400 bg-slate-50'}`} 
-                style={{ background: isActive ? themeGradient : undefined }}
+                className={`flex-1 min-w-[44px] flex flex-col items-center py-2.5 rounded-sm transition-all relative ${isActive ? 'text-white shadow-md' : 'bg-slate-50'}`} 
+                style={{ 
+                   background: isActive ? themeGradient : undefined,
+                   color: isActive ? 'white' : isToday ? theme.color : '#94a3b8' 
+                }}
               >
                 <span className={`text-[8px] font-black uppercase mb-1 ${isActive ? 'opacity-60' : 'opacity-40'}`}>{day.weekday}</span>
-                <span className="text-sm font-black mono">{day.date}</span>
+                <span className={`text-sm font-black mono ${isToday && !isActive ? 'scale-110' : ''}`}>{day.date}</span>
                 {isToday && (
-                  <div className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${isActive ? 'bg-white' : 'bg-rose-500'}`} />
+                  <div className={`absolute bottom-0.5 text-[7px] font-black uppercase tracking-tight ${isActive ? 'text-white/80' : ''}`}>
+                    TODAY
+                  </div>
+                )}
+                {/* Active Indicator if needed, but background covers it. Use today distinct mark */}
+                {!isActive && isToday && (
+                   <div className="absolute inset-0 border-2 rounded-sm pointer-events-none" style={{ borderColor: theme.color, opacity: 0.3 }} />
                 )}
               </button>
             );

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { AppView, DayInfo, Task, ThemeOption, Goal, Habit, ScoreDefinition, Reward, Subtask, HabitInstance, PurchaseRecord, TaskPriority } from './types';
-import { INITIAL_DAYS, THEME_OPTIONS, LIBRARY_TASKS } from './constants';
+import { THEME_OPTIONS, LIBRARY_TASKS } from './constants';
 import BottomNav from './components/BottomNav';
 import { X, Plus, Loader2, Trash2, Target, ListTodo, RotateCcw, Check, AlertCircle, Clock, Circle } from 'lucide-react';
 
@@ -28,6 +28,27 @@ const INITIAL_TEMPLATES = [
   { id: 'tmp1', name: '三件好事', text: "✨ 今日三件好事：\n1. \n2. \n3. " },
   { id: 'tmp2', name: '成功日记', text: "🏆 今日成就：\n🚩 核心产出：\n💡 待改进点：" },
 ];
+
+// Helper to generate current week days
+const generateCurrentWeekDays = (): DayInfo[] => {
+  const now = new Date();
+  const dayOfWeek = now.getDay() || 7; // 1-7
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + 1);
+  
+  const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  return Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return {
+      date: d.getDate(),
+      weekday: weekdays[i],
+      fullDate: `${d.getMonth() + 1}月${d.getDate()}日`,
+      tasks: [],
+      scheduledHabits: []
+    };
+  });
+};
 
 // Loading fallback component
 const PageLoader = () => (
@@ -119,7 +140,9 @@ const QuickCreateModal: React.FC<{
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('overview');
   const [isLoading, setIsLoading] = useState(true);
-  const [days, setDays] = useState<DayInfo[]>(INITIAL_DAYS.map(d => ({ ...d, scheduledHabits: [] })));
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  const [days, setDays] = useState<DayInfo[]>(() => generateCurrentWeekDays());
   const [library, setLibrary] = useState<Task[]>(LIBRARY_TASKS);
   const [habits, setHabits] = useState<Habit[]>(INITIAL_HABITS);
   const [rewards, setRewards] = useState<Reward[]>(INITIAL_REWARDS);
@@ -152,7 +175,58 @@ const App: React.FC = () => {
     return Array.from(new Set(cats)).filter(Boolean).sort();
   }, [library, habits, goals]);
 
-  // 计算能量平衡
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      try {
+        const savedData = localStorage.getItem('MINIMALIST_SCHEDULE_DATA');
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          if (parsed.days && parsed.days.length > 0) setDays(parsed.days);
+          if (parsed.library) setLibrary(parsed.library);
+          if (parsed.habits) setHabits(parsed.habits);
+          if (parsed.goals) setGoals(parsed.goals);
+          if (parsed.rewards) setRewards(parsed.rewards);
+          if (parsed.purchaseHistory) setPurchaseHistory(parsed.purchaseHistory);
+          if (parsed.reflectionTemplates) setReflectionTemplates(parsed.reflectionTemplates);
+          if (parsed.scoreDefs) setScoreDefs(parsed.scoreDefs);
+          if (parsed.theme) setTheme(parsed.theme);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setIsDataLoaded(true);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Save data to localStorage
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    
+    const dataToSave = {
+      days,
+      library,
+      habits,
+      goals,
+      rewards,
+      purchaseHistory,
+      reflectionTemplates,
+      scoreDefs,
+      theme,
+      version: '2.8.5',
+      timestamp: Date.now(),
+    };
+
+    try {
+      localStorage.setItem('MINIMALIST_SCHEDULE_DATA', JSON.stringify(dataToSave));
+    } catch (error) {
+      console.error('Failed to save data:', error);
+    }
+  }, [days, library, habits, goals, rewards, purchaseHistory, reflectionTemplates, scoreDefs, theme, isDataLoaded]);
+
+  // ... (Rest of logic remains same)
   const totalEarned = useMemo(() => {
     return days.reduce((sum, d) => sum + (d.scores?.reduce((ds, s) => ds + s.value, 0) || 0), 0);
   }, [days]);
@@ -420,14 +494,9 @@ const App: React.FC = () => {
     if (!window.confirm('确定要清空所有日期的日程安排吗？\n\n注意：任务库、习惯定义和目标将被保留，但所有日期的任务记录、打卡记录和复盘内容将被永久删除。')) {
       return;
     }
-    setDays(prev => prev.map(d => ({
-      ...d,
-      tasks: [],
-      scheduledHabits: [],
-      scores: [],
-      reflection: ''
-    })));
-    alert('所有日程已清空。');
+    // We recreate current week days to clear everything but keep the structure
+    setDays(generateCurrentWeekDays());
+    alert('所有日程已清空并重置为本周。');
   };
 
   const getTranslateX = () => {
@@ -441,6 +510,7 @@ const App: React.FC = () => {
   };
 
   const renderGlobalOverlays = () => {
+    // ... (Keep existing overlays code unchanged)
     const overlays = [];
     if (editingHabit) overlays.push(
       <div key="editHabit" className="fixed inset-0 z-[700] bg-slate-900/80 flex items-end justify-center p-4" onClick={() => { setEditingHabit(null); setIsHabitAppearanceOpen(false); }}>
